@@ -25,9 +25,9 @@ void AudioEffectOverdrive::update(void) {
         sample /= tempGain;
         sample *= level;
 
-        if (sample > 1.0f) sample = 1.0f;
-        if (sample < -1.0f) sample = -1.0f;
-
+        // Clamp to [-1.0, 1.0]
+        sample = constrain(sample, -1.0f, 1.0f);
+        
         block->data[i] = (int16_t)(sample * 32767.0f);
     }
 

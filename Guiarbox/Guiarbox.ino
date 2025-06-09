@@ -14,20 +14,32 @@
 #define page4_setup record_setup
 #define page4_loop record_loop
 
+
 // Include Statements
+#include <Arduino.h>
 #include <Adafruit_GFX_Buffer.h>  // https://github.com/vjmuzik/Adafruit_GFX_Buffer.git
-#include <Adafruit_ST7735.h>
-#include <Adafruit_GFX.h>  // One character at size 1 = 6*8 pixels
+#include <Adafruit_ST7735.h>      // https://github.com/adafruit/Adafruit-ST7735-Library
+#include <Adafruit_GFX.h>         // https://github.com/adafruit/Adafruit-GFX-Library              One character at size 1 = 6*8 pixels
 #include <Encoder.h>
 #include <Bounce2.h>
 #include "SystemBitmaps.h"
 #include <vector>
 
-// Audio
+#include "PageTuner.h"
+#include "PageEffects.h"
+#include "PageMetronome.h"
+#include "PageBackingTrack.h"
+#include "PageRecord.h"
+
+
 //#include <play_wav.h> // https://github.com/FrankBoesing/Teensy-WavePlayer.git
+
+// Custom Audio Classes
 #include <effect_overdrive.h>
 #include <effect_distortion.h>
 #include <effect_compressor.h>
+
+// Audio
 #include <Audio.h>
 #include <Wire.h>
 #include <SPI.h>
@@ -166,6 +178,7 @@ bool record_isBankUsed[RECORD_BANK_SIZE];
 #define SDCARD_CS_PIN 10
 #define SDCARD_MOSI_PIN 7
 #define SDCARD_SCK_PIN 14
+
 
 
 void setup() {

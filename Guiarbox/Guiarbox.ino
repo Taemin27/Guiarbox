@@ -15,9 +15,9 @@
 #define page4_loop record_loop
 
 // Include Statements
-#include "src/Adafruit_GFX_Buffer-master/src/Adafruit_GFX_Buffer.h"  // https://github.com/vjmuzik/Adafruit_GFX_Buffer.git
-#include "src/Adafruit-ST7735-Library-master/Adafruit_ST7735.h"
-#include "src/Adafruit-GFX-Library-master/Adafruit_GFX.h"  // One character at size 1 = 6*8 pixels
+#include <Adafruit_GFX_Buffer.h>  // https://github.com/vjmuzik/Adafruit_GFX_Buffer.git
+#include <Adafruit_ST7735.h>
+#include <Adafruit_GFX.h>  // One character at size 1 = 6*8 pixels
 #include <Encoder.h>
 #include <Bounce2.h>
 #include "SystemBitmaps.h"
@@ -25,9 +25,9 @@
 
 // Audio
 //#include <play_wav.h> // https://github.com/FrankBoesing/Teensy-WavePlayer.git
-#include "src/customAudioClass/effect_overdrive.h"
-#include "src/customAudioClass/effect_distortion.h"
-#include "src/customAudioClass/effect_compressor.h"
+#include <effect_overdrive.h>
+#include <effect_distortion.h>
+#include <effect_compressor.h>
 #include <Audio.h>
 #include <Wire.h>
 #include <SPI.h>

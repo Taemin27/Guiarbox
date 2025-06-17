@@ -109,7 +109,6 @@ bool backingTrack_on = false;
 bool backingTrack_loopTrack = false;
 int backingTrack_fileIndex = 0;
 int backingTrack_volume = 10;
-int backingTrack_previousPosition = 0;
 
 void backingTrack_setup() {
   display.fillScreen(BLACK);
@@ -119,6 +118,7 @@ void backingTrack_setup() {
 }
 
 void backingTrack_loop() {
+  // When button is pressed
   bounce.update();
   if(bounce.changed() && bounce.read() == LOW) {
     if(!pageSelected) {
@@ -127,30 +127,32 @@ void backingTrack_loop() {
     }
     else if(pageSelected) {
       switch(backingTrack_cursorLoc) {
-        case 0:
+        case 0: // Back to main menu
           pageSelected = false;
           backingTrack_setup();
           break;
-        case 2:
-          backingTrack_previousTrack();
+        case 2: // Previous track
+          backingTrack_previousButton();
           backingTrack_refresh();
           break;
-        case 3:
-          backingTrack_on = !backingTrack_on;
-          if(backingTrackPlayWav.isStopped()) {
-            backingTrackPlayWav.play(("backingtracks/" + backingTrack_files[backingTrack_fileIndex]).c_str());
-          }
-          else {
-            backingTrackPlayWav.togglePlayPause();
-          }
+        case 3: // Play/Pause
+          if (!backingTrack_files.empty()) {
+            backingTrack_on = !backingTrack_on;
+            if(backingTrackPlayWav.isStopped()) {
+              backingTrackPlayWav.play(("backingtracks/" + backingTrack_files[backingTrack_fileIndex]).c_str());
+            }
+            else {
+              backingTrackPlayWav.togglePlayPause();
+            }
 
-          backingTrack_refresh();
+            backingTrack_refresh();
+          }
           break;
-        case 4:
+        case 4: // Next track
           backingTrack_nextTrack();
           backingTrack_refresh();
           break;
-        default:
+        default: // File selection or volume
           backingTrack_valueSelected = !backingTrack_valueSelected;
           backingTrack_refresh();
           break;
@@ -170,10 +172,9 @@ void backingTrack_loop() {
         if(backingTrack_valueSelected) {
           switch(backingTrack_cursorLoc) {
             case 1:
-              if (backingTrack_fileIndex < backingTrack_lastIndex) {
+              if (backingTrack_fileIndex < backingTrack_files.size() - 1) {
                 backingTrack_fileIndex ++;
                 backingTrackPlayWav.stop();
-                backingTrack_previousPosition = 0;
               }
               break;
             case 5:
@@ -198,7 +199,6 @@ void backingTrack_loop() {
               if (backingTrack_fileIndex > 0) {
                 backingTrack_fileIndex --;
                 backingTrackPlayWav.stop();
-                backingTrack_previousPosition = 0;
               }
               break;
             case 5:
@@ -219,13 +219,23 @@ void backingTrack_loop() {
     }
   }
 
-  // Update progress bar every 1 second
-  if (!backingTrackPlayWav.isStopped()) {
-    int position = backingTrackPlayWav.positionMillis();
-    if ((position - backingTrack_previousPosition) >= 1000) {
-      backingTrack_previousPosition = position;
-      backingTrack_drawProgressBar();
+  // If the track is playing, update the progress bar every second
+  if (backingTrack_on) {
+    // If track has ended, play the next track
+    if (backingTrackPlayWav.isStopped()) {
+      backingTrack_nextTrack();
+      backingTrack_refresh();
       display.display();
+    }
+
+    // If track is playing, update the progress bar every second
+    else if (backingTrackPlayWav.isPlaying() && pageSelected) {
+      static unsigned long lastUpdate = 0;
+      if (millis() - lastUpdate > 500) {
+        lastUpdate = millis();
+        backingTrack_drawProgressBar();
+        display.display();
+      }
     }
   }
 }
@@ -246,7 +256,10 @@ void backingTrack_refresh() {
   display.print("<<<");
   display.setCursor(0, 10);
   display.print("File: ");
-  if (!backingTrack_files.empty()) {
+  if (backingTrack_files.empty()) {
+    display.println("No file");
+  }
+  else {
     display.println(backingTrack_files[backingTrack_fileIndex]);
   }
 
@@ -285,7 +298,12 @@ void backingTrack_refresh() {
       if (backingTrack_valueSelected) {
         display.fillRect(36, 10, 124, 8, BLACK);
         display.setCursor(36, 10);
-        display.print(backingTrack_files[backingTrack_fileIndex]);
+        if (backingTrack_files.empty()) {
+          display.print("No file");
+        }
+        else {
+          display.print(backingTrack_files[backingTrack_fileIndex]);
+        }
       }
       else {
         display.setCursor(0, 10);
@@ -325,36 +343,45 @@ void backingTrack_refresh() {
 
 void backingTrack_drawProgressBar() {
   int length = backingTrackPlayWav.lengthMillis();
-  if (length == 0) {
+  if (length <= 0) {
     length = 1;
   }
-  int x = 10 + ((float)backingTrack_previousPosition / (float)length) * 140;
+  int position = backingTrackPlayWav.positionMillis();
+  int x = map(position, 0, length, 10, 150);
   display.fillRect(0, 47, 160, 7, BLACK);
   display.drawFastHLine(10, 50, 140, GRAY);
   display.fillRect(10, 49, x - 10, 3, WHITE);
   display.fillCircle(x, 50, 3, WHITE);
 }
 
-void backingTrack_previousTrack() {
-  if (backingTrackPlayWav.positionMillis() > 3000 && backingTrackPlayWav.isPlaying()) {
-    backingTrackPlayWav.stop();
-    backingTrack_previousPosition = 0;
-  }
-  else {
-    if (--backingTrack_fileIndex < 0) {
-      backingTrack_fileIndex = 0;
+void backingTrack_previousButton() {
+  if (!backingTrack_files.empty()) {
+    // Restart the current track from the beginning if it has been playing for over 3 seconds. Else, play the previous track.
+    if (backingTrackPlayWav.isPlaying() && backingTrackPlayWav.positionMillis() > 3000) {
+      backingTrackPlayWav.stop();
+      backingTrackPlayWav.play(("backingtracks/" + backingTrack_files[backingTrack_fileIndex]).c_str());
     }
-    backingTrack_previousPosition = 0;
-    backingTrackPlayWav.stop();
+    else {
+      backingTrack_fileIndex--;
+      if (backingTrack_fileIndex < 0) {
+        backingTrack_fileIndex = backingTrack_files.size() - 1; // Loop back to the last track
+      }
+      backingTrackPlayWav.stop();
+      backingTrackPlayWav.play(("backingtracks/" + backingTrack_files[backingTrack_fileIndex]).c_str());
+    }
+    backingTrack_on = true;
   }
 }
 
 void backingTrack_nextTrack() {
-  if (++backingTrack_fileIndex >= backingTrack_lastIndex) {
-    backingTrack_fileIndex = backingTrack_lastIndex;
+  if (!backingTrack_files.empty()) {
+    // Stop and play the next track
+    backingTrack_fileIndex++;
+    if (backingTrack_fileIndex > backingTrack_files.size() - 1) {
+      backingTrack_fileIndex = 0; // Loop back to the first track
+    }
+    backingTrackPlayWav.stop();
+    backingTrackPlayWav.play(("backingtracks/" + backingTrack_files[backingTrack_fileIndex]).c_str());
+    backingTrack_on = true;
   }
-  else {
-    backingTrack_previousPosition = 0;
-  }
-  backingTrackPlayWav.stop();
 }

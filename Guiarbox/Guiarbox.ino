@@ -117,7 +117,9 @@ AudioControlSGTL5000 sgtl5000_1;  //xy=132.1999969482422,524.9999847412109
 #define RST 9
 
 //Adafruit_ST7735 display = Adafruit_ST7735(CS, DC, RST);
-Adafruit_GFX_Buffer<Adafruit_ST7735> display = Adafruit_GFX_Buffer<Adafruit_ST7735>(80, 160, Adafruit_ST7735(&SPI, CS, DC, RST));
+typedef Adafruit_ST7735 display_t;
+typedef Adafruit_GFX_Buffer<display_t> GFXBuffer_t;
+GFXBuffer_t display = GFXBuffer_t(80, 160, display_t(&SPI, CS, DC, RST));
 
 const uint16_t BLACK = 0x0000;
 const uint16_t WHITE = 0xffff;
@@ -159,7 +161,6 @@ int metronome_currentBeat = 0;
 
 // BackingTrack global variables
 std::vector<String> backingTrack_files;
-int backingTrack_lastIndex;
 
 // Recorder global variables
 #define RECORD_BANK_SIZE 10
@@ -180,7 +181,7 @@ void setup() {
 
 
   /* Audio */
-  AudioMemory(1000);
+  AudioMemory(50);
 
   sgtl5000_1.enable();
   sgtl5000_1.dacVolumeRampDisable();
@@ -197,8 +198,13 @@ void setup() {
 
   /* Display */
   display.initR(INITR_MINI160x80_PLUGIN);
+  display.setSPISpeed(24000000);
   display.setRotation(3);
   display.invertDisplay(false);
+
+  // DMA
+  Serial.println(display.initDMA(display.DMA0) ? "DMA: On" : "DMA: Off");
+
   display.drawBitmap(0, 0, Guiarbox, 160, 80, BOOT);
   display.setTextSize(1);
   display.setTextColor(WHITE);
@@ -274,7 +280,7 @@ void setup() {
 
   /* BackingTrack*/
   File backingTrackDir = SD.open("backingtracks");
-  while (false) {
+  while (true) {
     File entry = backingTrackDir.openNextFile();
     if (!entry) {
       break;
@@ -287,7 +293,6 @@ void setup() {
   }
   backingTrackDir.close();
 
-  backingTrack_lastIndex = backingTrack_files.size() - 1;
   playSDMixer.gain(0, 1);
   playSDMixer.gain(1, 1);
 

@@ -9,8 +9,8 @@ void AudioEffectDistortion::update(void) {
 
         envelope = smoothing * envelope + (1.0f - smoothing) * fabs(sample);
 
-        // pre-gain
-        float dynamicGain = (1.0f + envelope * dynamicGainResponse) * basePreGain;
+        // gain
+        float dynamicGain = (1.0f + envelope * dynamicGainResponse) * gain;
         sample *= dynamicGain;
 
         // Stage 1 soft clipping
@@ -23,15 +23,13 @@ void AudioEffectDistortion::update(void) {
         posClip = positiveClip - envelope * positiveClipResponse;
         negClip = negativeClip + envelope * negativeClipResponse; 
 
-        if (sample > posClip) sample = posClip;
-        else if (sample < negClip) sample = negClip;
+        sample = constrain(sample, negClip, posClip);
 
         // level
         sample *= level;
 
         // clamp to [-1.0, 1.0]
-        if (sample > 1.0f) sample = 1.0f;
-        if (sample < -1.0f) sample = -1.0f;
+        sample = constrain(sample, -1.0f, 1.0f);
 
         block->data[i] = (int16_t) (sample * 32767.0f);
     }

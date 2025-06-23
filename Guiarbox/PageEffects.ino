@@ -968,7 +968,7 @@ void ef_drawDrive() {
   if(ef_drive_mode == 0) {
     if(ef_drive_on) {
       // Enable OD and apply settings
-      driveToneBiquad.setLowpass(0, ef_ds_tone * 1600 + 1000, 0.3);
+      driveToneBiquad.setLowpass(0, (ef_ds_tone / 10.0f) * 4000.0f + 500.0f, 0.707f);
 
       overdriveFirstAmp.gain(1);
       overdrive.setDrive(ef_od_drive + 2);
@@ -999,10 +999,10 @@ void ef_drawDrive() {
   else if(ef_drive_mode == 1) {
     if(ef_drive_on) {
       // Enable DS and apply settings
-      driveToneBiquad.setLowpass(0, ef_ds_tone * 1600 + 1000, 0.3);
+      driveToneBiquad.setLowpass(0, (ef_ds_tone / 10.0f) * 4000.0f + 500.0f, 0.707f);
 
       distortionFirstAmp.gain(1);
-      distortion.setBasePregain(ef_ds_drive * 3);
+      distortion.setGain(ef_ds_drive * (4.0f + ef_ds_drive));
       distortion.setLevel((float)ef_ds_level / 10);
 
       driveMixer.gain(0, 0);

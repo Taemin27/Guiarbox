@@ -10,7 +10,7 @@ public:
     AudioEffectDistortion() : AudioStream(1, inputQueueArray) {
         positiveClip = 1.0f;
         negativeClip = -1.0f;
-        basePreGain = 1.0f;
+        gain = 1.0f;
         level = 1.0f;
         smoothing = 0.9f;
         dynamicGainResponse = 2.0f;
@@ -25,8 +25,8 @@ public:
         AudioEffectDistortion::negativeClip = fmaxf(fminf(negativeClip, 0.0f), -1.0f);
     }
 
-    void setBasePregain(float basePreGain) {
-        AudioEffectDistortion::basePreGain = basePreGain;
+    void setGain(float gain) {
+        AudioEffectDistortion::gain = gain;
     }
 
     void setLevel(float level) {
@@ -52,7 +52,7 @@ private:
     audio_block_t *inputQueueArray[1];
     float positiveClip;
     float negativeClip;
-    float basePreGain;
+    float gain;
     float level;
     float smoothing;
     float dynamicGainResponse;

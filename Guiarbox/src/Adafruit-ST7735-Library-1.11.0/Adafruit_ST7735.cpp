@@ -229,9 +229,13 @@ void Adafruit_ST7735::initB(void) {
 void Adafruit_ST7735::initR(uint8_t options) {
   commonInit(Rcmd1);
   if (options == INITR_GREENTAB) {
+    _height = ST7735_TFTWIDTH_80; // Added for DFRobot 160x80
+    _width = ST7735_TFTHEIGHT_160; // Added for DFRobot 160x80
     displayInit(Rcmd2green);
-    _colstart = 2;
-    _rowstart = 1;
+    // _colstart = 2;
+    // _rowstart = 1;
+    _colstart = 24; // Corrected for DFRobot 160x80
+    _rowstart = 0; // Corrected for DFRobot 160x80
   } else if ((options == INITR_144GREENTAB) || (options == INITR_HALLOWING)) {
     _height = ST7735_TFTHEIGHT_128;
     _width = ST7735_TFTWIDTH_128;

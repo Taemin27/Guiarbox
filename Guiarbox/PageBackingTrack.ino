@@ -228,10 +228,10 @@ void backingTrack_loop() {
       display.display();
     }
 
-    // If track is playing, update the progress bar every second
+    // If track is playing, update the progress bar every 5 seconds
     else if (backingTrackPlayWav.isPlaying() && pageSelected) {
       static unsigned long lastUpdate = 0;
-      if (millis() - lastUpdate > 500) {
+      if (millis() - lastUpdate > 5000) {
         lastUpdate = millis();
         backingTrack_drawProgressBar();
         display.display();

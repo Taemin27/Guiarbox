@@ -197,13 +197,15 @@ void setup() {
   masterMixer.gain(3, 1);
 
   /* Display */
-  display.initR(INITR_MINI160x80_PLUGIN);
+  display.initR(INITR_GREENTAB);
   display.setSPISpeed(24000000);
-  display.setRotation(3);
+  display.setRotation(1);
   display.invertDisplay(false);
 
   // DMA
   Serial.println(display.initDMA(display.DMA0) ? "DMA: On" : "DMA: Off");
+
+  delay(500);
 
   display.drawBitmap(0, 0, Guiarbox, 160, 80, BOOT);
   display.setTextSize(1);
@@ -241,13 +243,13 @@ void setup() {
   compressor.setRatio(5.0f);
 
   //Drive
-  drivePreBiquad.setHighpass(0, 170.0, 0.707);
+  drivePreBiquad.setHighpass(0, 400.0, 0.707);
   drivePreBiquad.setLowpass(1, 3500.0, 0.707);
 
   overdrive.setTempGain(2);
   overdrive.setOvertoneMix(0.3);
 
-  distortion.setClip(0.2, -0.25);
+  distortion.setClip(0.1, -0.25);
   distortion.setClipResponse(0.15, 0.2);
   distortion.setDynamicGainResponse(0.2);
   distortion.setSmoothing(0.6);

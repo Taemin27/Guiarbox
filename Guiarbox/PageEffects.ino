@@ -1002,7 +1002,7 @@ void ef_drawDrive() {
       driveToneBiquad.setLowpass(0, (ef_ds_tone / 10.0f) * 4000.0f + 500.0f, 0.707f);
 
       distortionFirstAmp.gain(1);
-      distortion.setGain(ef_ds_drive * (4.0f + ef_ds_drive));
+      distortion.setGain(ef_ds_drive * (2.0f + 1.4f * ef_ds_drive));
       distortion.setLevel((float)ef_ds_level / 10);
 
       driveMixer.gain(0, 0);

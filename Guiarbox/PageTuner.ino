@@ -145,15 +145,8 @@ void tuner_loop() {
     float freq = notefreq1.read();
 
     // Find closest note
-    int matchIndex = 0;
-    float smallestDiff = 9999;
-    for(int i = 0; i < 60; i++) {
-      float diff = abs(frequencies[i] - freq);
-      if(diff < smallestDiff) {
-        smallestDiff = diff;
-        matchIndex = i;
-      }
-    }
+    int matchIndex = searchNote(frequencies, freq, 0, 59);
+	
     
     // Calculate difference in cents
     int diffCent = round(1200 * log2(freq / frequencies[matchIndex]));
@@ -194,4 +187,26 @@ void tuner_loop() {
 
     display.display();
   }
+}
+
+int searchNote(const float* array, float x, int start, int end) {
+	if (start == end) {
+		return start;
+	}
+
+	if (start + 1 == end) {
+		return (fabs(array[start] - x) <= fabs(array[end] - x)) ? start : end;
+	}
+
+	int mid = (start + end) / 2;
+
+	if (array[mid] == x) {
+		return mid;
+	}
+
+	if (x < array[mid]) {
+		return searchNote(array, x, start, mid);
+	} else {
+		return searchNote(array, x, mid, end);
+	}
 }

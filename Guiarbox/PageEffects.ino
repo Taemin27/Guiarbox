@@ -536,8 +536,8 @@ void effects_loop() {
 
             case delaySettings:
               if (ef_cursorLoc == 2) {
-                if (ef_delay_time <= 1.49) {
-                  ef_delay_time += 0.03;
+                if (ef_delay_time < 1.0) {
+                  ef_delay_time += 0.01;
                 }
               }
               else if (ef_cursorLoc == 3) {
@@ -690,8 +690,8 @@ void effects_loop() {
 
             case delaySettings:
               if(ef_cursorLoc == 2) {
-                if  (ef_delay_time >= 0.01) {
-                  ef_delay_time -= 0.03;
+                if  (ef_delay_time > 0.0) {
+                  ef_delay_time -= 0.01;
                 }
               }
               else if(ef_cursorLoc == 3) {
@@ -968,11 +968,10 @@ void ef_drawDrive() {
   if(ef_drive_mode == 0) {
     if(ef_drive_on) {
       // Enable OD and apply settings
-      driveToneBiquad.setLowpass(0, (ef_ds_tone / 10.0f) * 4000.0f + 500.0f, 0.707f);
-
       overdriveFirstAmp.gain(1);
-      overdrive.setDrive(ef_od_drive + 2);
-      distortion.setLevel((float)ef_od_level / 10);
+      overdrive.setDrive((float)ef_od_drive / 10);
+      overdrive.setLevel((float)ef_od_level / 10);
+      overdrive.setTone((float)ef_od_tone / 10);
 
       driveMixer.gain(0, 1);
       driveMixer.gain(1, 0);
@@ -999,11 +998,10 @@ void ef_drawDrive() {
   else if(ef_drive_mode == 1) {
     if(ef_drive_on) {
       // Enable DS and apply settings
-      driveToneBiquad.setLowpass(0, (ef_ds_tone / 10.0f) * 4000.0f + 500.0f, 0.707f);
-
       distortionFirstAmp.gain(1);
-      distortion.setGain(ef_ds_drive * (2.0f + 1.4f * ef_ds_drive));
+      distortion.setDrive((float)ef_ds_drive / 10);
       distortion.setLevel((float)ef_ds_level / 10);
+      distortion.setTone((float)ef_ds_tone / 10);
 
       driveMixer.gain(0, 0);
       driveMixer.gain(1, 1);

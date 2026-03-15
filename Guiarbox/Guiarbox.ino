@@ -38,77 +38,81 @@
 #include <SerialFlash.h>
 
 // GUItool: begin automatically generated code
-AudioInputI2S i2s1;                   //xy=173.1999969482422,626.9999847412109
-AudioAmplifier notefreqAmp;           //xy=355.1999969482422,336.99998474121094
-AudioEffectCompressor compressor;     //xy=454.1999969482422,736.9999847412109
-AudioAnalyzeNoteFrequency notefreq1;  //xy=511.1999969482422,338.99998474121094
-AudioMixer4 compressorOnOffMixer;     //xy=664.1999969482422,617.9999847412109
-AudioFilterBiquad drivePreBiquad;     //xy=931.1999969482422,706.9999847412109
-AudioEffectDistortion distortion;     //xy=1185.1999969482422,884.9999847412109
-AudioAmplifier distortionFirstAmp;    //xy=1187.1999969482422,834.9999847412109
-AudioEffectWaveshaper fuzzWaveShape;  //xy=1197.1999969482422,998.9999847412109
-AudioAmplifier overdriveFirstAmp;     //xy=1200.1999969482422,667.9999847412109
-AudioEffectOverdrive overdrive;       //xy=1209.1999969482422,714.9999847412109
-AudioMixer4 driveMixer;               //xy=1426.1999969482422,769.9999847412109
-AudioFilterBiquad driveToneBiquad;    //xy=1606.2000350952148,751.0000267028809
-AudioMixer4 driveOnOffMixer;          //xy=1715.1999969482422,642.9999847412109
-AudioEffectFlange chorusFlange;       //xy=2146.199996948242,696.9999847412109
-AudioMixer4 chorusMixer;              //xy=2352.199996948242,669.9999847412109
-AudioAmplifier delayAmp;              //xy=2500.199996948242,809.9999847412109
-AudioMixer4 delayMixer;               //xy=2557.199996948242,690.9999847412109
-AudioEffectDelay delay1;              //xy=2634.199996948242,809.9999847412109
-AudioMixer4 reverbMixer;              //xy=2882.199996948242,689.9999847412109
-AudioEffectFreeverb freeverb1;        //xy=2882.199996948242,740.9999847412109
-AudioAmplifier reverbAmp;             //xy=2886.199996948242,778.9999847412109
-AudioPlaySdWav backingTrackPlayWav;   //xy=2906.199996948242,511.99998474121094
-AudioSynthSimpleDrum metronomeDrum;   //xy=3066.199996948242,615.9999847412109
-AudioMixer4 playSDMixer;              //xy=3121.199996948242,521.9999847412109
-AudioInputUSB usb1;                   //xy=3198.199996948242,390.99998474121094
-AudioMixer4 usbMixer;                 //xy=3366.199996948242,408.99998474121094
-AudioMixer4 masterMixer;              //xy=3404.199996948242,662.9999847412109
-AudioOutputI2S i2s2;                  //xy=3567.199996948242,656.9999847412109
+AudioInputI2S            i2s1;           //xy=935,1465
+AudioAmplifier           notefreqAmp;    //xy=1117,1175
+AudioEffectCompressor    compressor;     //xy=1216,1575
+AudioAnalyzeNoteFrequency notefreq1;      //xy=1273,1177
+AudioMixer4              compressorOnOffMixer; //xy=1426,1456
+AudioEffectDistortion    distortion;     //xy=1947,1723
+AudioAmplifier           distortionFirstAmp; //xy=1949,1673
+AudioEffectWaveshaper    fuzzWaveShape;  //xy=1959,1837
+AudioAmplifier           overdriveFirstAmp; //xy=1962,1506
+AudioEffectOverdrive     overdrive;      //xy=1971,1553
+AudioMixer4              driveMixer;     //xy=2188,1608
+AudioMixer4              driveOnOffMixer; //xy=2477,1481
+AudioEffectFlange        chorusFlange;   //xy=2908,1535
+AudioMixer4              chorusMixer;    //xy=3114,1508
+AudioAmplifier           delayAmp;       //xy=3262,1648
+AudioMixer4              delayMixer;     //xy=3319,1529
+AudioEffectDelay         delay1;         //xy=3396,1648
+AudioMixer4              reverbMixer;    //xy=3644,1528
+AudioEffectFreeverb      freeverb1;      //xy=3644,1579
+AudioAmplifier           reverbAmp;      //xy=3648,1617
+AudioPlaySdWav           recorderPlayWav; //xy=3654,1394
+AudioPlaySdWav           backingTrackPlayWav; //xy=3668,1350
+AudioSynthSimpleDrum     metronomeDrum;  //xy=3828,1454
+AudioMixer4              playSDMixer;    //xy=3883,1360
+AudioInputUSB            usb1;           //xy=3960,1229
+AudioMixer4              usbMixer;       //xy=4128,1247
+AudioRecordQueue         recordQueue;    //xy=4160,1643
+AudioMixer4              masterMixer;    //xy=4166,1501
+AudioOutputI2S           i2s2;           //xy=4329,1495
 
-AudioConnection patchCord1(i2s1, 0, notefreqAmp, 0);
-AudioConnection patchCord2(i2s1, 0, compressorOnOffMixer, 0);
-AudioConnection patchCord3(i2s1, 0, compressor, 0);
-AudioConnection patchCord4(notefreqAmp, notefreq1);
-AudioConnection patchCord5(compressor, 0, compressorOnOffMixer, 1);
-AudioConnection patchCord6(compressorOnOffMixer, 0, driveOnOffMixer, 0);
-AudioConnection patchCord7(compressorOnOffMixer, drivePreBiquad);
-AudioConnection patchCord8(drivePreBiquad, overdriveFirstAmp);
-AudioConnection patchCord9(drivePreBiquad, distortionFirstAmp);
-AudioConnection patchCord10(drivePreBiquad, fuzzWaveShape);
-AudioConnection patchCord11(distortion, 0, driveMixer, 1);
-AudioConnection patchCord12(distortionFirstAmp, distortion);
-AudioConnection patchCord13(fuzzWaveShape, 0, driveMixer, 2);
-AudioConnection patchCord14(overdriveFirstAmp, overdrive);
-AudioConnection patchCord15(overdrive, 0, driveMixer, 0);
-AudioConnection patchCord16(driveMixer, driveToneBiquad);
-AudioConnection patchCord17(driveToneBiquad, 0, driveOnOffMixer, 1);
-AudioConnection patchCord18(driveOnOffMixer, 0, chorusMixer, 0);
-AudioConnection patchCord19(driveOnOffMixer, chorusFlange);
-AudioConnection patchCord20(chorusFlange, 0, chorusMixer, 1);
-AudioConnection patchCord21(chorusMixer, 0, delayMixer, 0);
-AudioConnection patchCord22(delayAmp, delay1);
-AudioConnection patchCord23(delayMixer, 0, reverbMixer, 0);
-AudioConnection patchCord24(delayMixer, reverbAmp);
-AudioConnection patchCord25(delayMixer, delayAmp);
-AudioConnection patchCord26(delay1, 0, delayMixer, 1);
-AudioConnection patchCord27(reverbMixer, 0, masterMixer, 3);
-AudioConnection patchCord28(freeverb1, 0, reverbMixer, 1);
-AudioConnection patchCord29(reverbAmp, freeverb1);
-AudioConnection patchCord30(backingTrackPlayWav, 0, playSDMixer, 0);
-AudioConnection patchCord31(backingTrackPlayWav, 1, playSDMixer, 1);
-AudioConnection patchCord32(metronomeDrum, 0, masterMixer, 2);
-AudioConnection patchCord33(playSDMixer, 0, masterMixer, 1);
-AudioConnection patchCord34(usb1, 0, usbMixer, 0);
-AudioConnection patchCord35(usb1, 1, usbMixer, 1);
-AudioConnection patchCord36(usbMixer, 0, masterMixer, 0);
-AudioConnection patchCord37(masterMixer, 0, i2s2, 0);
-AudioConnection patchCord38(masterMixer, 0, i2s2, 1);
+AudioConnection          patchCord1(i2s1, 0, notefreqAmp, 0);
+AudioConnection          patchCord2(i2s1, 0, compressorOnOffMixer, 0);
+AudioConnection          patchCord3(i2s1, 0, compressor, 0);
+AudioConnection          patchCord4(notefreqAmp, notefreq1);
+AudioConnection          patchCord5(compressor, 0, compressorOnOffMixer, 1);
+AudioConnection          patchCord6(compressorOnOffMixer, 0, driveOnOffMixer, 0);
+AudioConnection          patchCord7(compressorOnOffMixer, overdriveFirstAmp);
+AudioConnection          patchCord8(compressorOnOffMixer, distortionFirstAmp);
+AudioConnection          patchCord9(compressorOnOffMixer, fuzzWaveShape);
+AudioConnection          patchCord10(distortion, 0, driveMixer, 1);
+AudioConnection          patchCord11(distortionFirstAmp, distortion);
+AudioConnection          patchCord12(fuzzWaveShape, 0, driveMixer, 2);
+AudioConnection          patchCord13(overdriveFirstAmp, overdrive);
+AudioConnection          patchCord14(overdrive, 0, driveMixer, 0);
+AudioConnection          patchCord15(driveMixer, 0, driveOnOffMixer, 1);
+AudioConnection          patchCord16(driveOnOffMixer, 0, chorusMixer, 0);
+AudioConnection          patchCord17(driveOnOffMixer, chorusFlange);
+AudioConnection          patchCord18(chorusFlange, 0, chorusMixer, 1);
+AudioConnection          patchCord19(chorusMixer, 0, delayMixer, 0);
+AudioConnection          patchCord20(delayAmp, delay1);
+AudioConnection          patchCord21(delayMixer, 0, reverbMixer, 0);
+AudioConnection          patchCord22(delayMixer, reverbAmp);
+AudioConnection          patchCord23(delayMixer, delayAmp);
+AudioConnection          patchCord24(delay1, 0, delayMixer, 1);
+AudioConnection          patchCord25(reverbMixer, 0, masterMixer, 3);
+AudioConnection          patchCord26(freeverb1, 0, reverbMixer, 1);
+AudioConnection          patchCord27(reverbAmp, freeverb1);
+AudioConnection          patchCord28(recorderPlayWav, 0, playSDMixer, 2);
+AudioConnection          patchCord29(recorderPlayWav, 1, playSDMixer, 3);
+AudioConnection          patchCord30(backingTrackPlayWav, 0, playSDMixer, 0);
+AudioConnection          patchCord31(backingTrackPlayWav, 1, playSDMixer, 1);
+AudioConnection          patchCord32(metronomeDrum, 0, masterMixer, 2);
+AudioConnection          patchCord33(playSDMixer, 0, masterMixer, 1);
+AudioConnection          patchCord34(usb1, 0, usbMixer, 0);
+AudioConnection          patchCord35(usb1, 1, usbMixer, 1);
+AudioConnection          patchCord36(usbMixer, 0, masterMixer, 0);
+AudioConnection          patchCord37(masterMixer, 0, i2s2, 0);
+AudioConnection          patchCord38(masterMixer, 0, i2s2, 1);
+AudioConnection          patchCord39(masterMixer, recordQueue);
 
-AudioControlSGTL5000 sgtl5000_1;  //xy=132.1999969482422,524.9999847412109
+AudioControlSGTL5000     sgtl5000_1;     //xy=762,839
 // GUItool: end automatically generated code
+
+
+
 
 
 // Display
@@ -119,7 +123,7 @@ AudioControlSGTL5000 sgtl5000_1;  //xy=132.1999969482422,524.9999847412109
 //Adafruit_ST7735 display = Adafruit_ST7735(CS, DC, RST);
 typedef Adafruit_ST7735 display_t;
 typedef Adafruit_GFX_Buffer<display_t> GFXBuffer_t;
-GFXBuffer_t display = GFXBuffer_t(80, 160, display_t(&SPI, CS, DC, RST));
+GFXBuffer_t display = GFXBuffer_t(80, 160, display_t(&SPI1, CS, DC, RST));
 
 const uint16_t BLACK = 0x0000;
 const uint16_t WHITE = 0xffff;
@@ -134,7 +138,7 @@ const uint16_t BOOT = 0x0617;
 Encoder enc(3, 2);
 long oldPosition = 0;
 
-const int buttonPin = 1;
+const int buttonPin = 0;
 Bounce bounce = Bounce();
 
 
@@ -144,7 +148,6 @@ int pageCount = 4;
 bool pageSelected = false;
 
 // Compressor
-
 const float ef_compressor_thresholdMax = 0.5;  //Adjust if needed (use compressorPeak.read() to find the right value)
 const float ef_compressor_ratio = 0.125;
 
@@ -163,8 +166,11 @@ int metronome_currentBeat = 0;
 std::vector<String> backingTrack_files;
 
 // Recorder global variables
-#define RECORD_BANK_SIZE 10
+#define RECORD_BANK_SIZE 99
 bool record_isBankUsed[RECORD_BANK_SIZE];
+File recordFile;
+int record_state = 0; // 0:Stopped 1:Recording 2:Playing
+int record_currentBank = 1;
 
 // SD
 #define SDCARD_CS_PIN 10
@@ -181,14 +187,14 @@ void setup() {
 
 
   /* Audio */
-  AudioMemory(50);
+  AudioMemory(1000);
 
   sgtl5000_1.enable();
   sgtl5000_1.dacVolumeRampDisable();
   sgtl5000_1.muteLineout();
   sgtl5000_1.inputSelect(AUDIO_INPUT_LINEIN);
-  sgtl5000_1.lineInLevel(5);
-  sgtl5000_1.volume(0.5);
+  sgtl5000_1.lineInLevel(1);
+  sgtl5000_1.volume(0.5f);
 
 
   masterMixer.gain(0, 1);
@@ -225,10 +231,10 @@ void setup() {
     display.fillScreen(BLACK);
     display.drawBitmap(0, 0, noSDCard, 160, 80, WHITE);
     display.display();
-    while (1) {
+    //while (1) {
       Serial.println("Unable to access the SD card");
       delay(500);
-    }
+    //}
   }
 
 
@@ -243,16 +249,8 @@ void setup() {
   compressor.setRatio(5.0f);
 
   //Drive
-  drivePreBiquad.setHighpass(0, 400.0, 0.707);
-  drivePreBiquad.setLowpass(1, 3500.0, 0.707);
-
-  overdrive.setTempGain(2);
-  overdrive.setOvertoneMix(0.3);
-
-  distortion.setClip(0.1, -0.25);
-  distortion.setClipResponse(0.15, 0.2);
-  distortion.setDynamicGainResponse(0.2);
-  distortion.setSmoothing(0.6);
+  overdrive.setLineInLevel(1);
+  distortion.setLineInLevel(1);
 
   disableDrive();
 
@@ -297,14 +295,23 @@ void setup() {
 
   playSDMixer.gain(0, 1);
   playSDMixer.gain(1, 1);
+  
 
   /* Record */
-  // for (int i = 0; i < RECORD_BANK_SIZE; i++) {
-  //   char dir = "recordings/" + i;
-  //   if (SD.exists(dir + ".wav")) {
-  //     record_isBankUsed[i] = true;
-  //   }
-  // }
+  // Check used banks
+  for (int i = 0; i < RECORD_BANK_SIZE; i++) {
+    String filename = "recordings/RECORD" + String(i) + ".WAV";
+    if (SD.exists(filename.c_str())) {
+      record_isBankUsed[i] = true;
+    } else {
+      record_isBankUsed[i] = false;
+    }
+  }
+
+  playSDMixer.gain(2, 1);
+  playSDMixer.gain(3, 1);
+
+
 
 
   page0_setup();
@@ -313,10 +320,11 @@ void setup() {
 int previousMemoryUsage = 0;
 
 void loop() {
-  printAudioMemoryUsage();
+  //printAudioMemoryUsage();
   float requestedVolume = usb1.volume();
   usbMixer.gain(0, requestedVolume);
   usbMixer.gain(1, requestedVolume);
+
   switch (currentPage) {
     case 0:
       page0_loop();
@@ -362,6 +370,11 @@ void loop() {
       }
       metronome_previousMillis = currentMillis;
     }
+  }
+
+  // Record
+  if (record_state == 1) {
+    continueRecording();
   }
 }
 

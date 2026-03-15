@@ -1,36 +1,61 @@
 #include "effect_overdrive.h"
 
-void AudioEffectOverdrive::update(void) {
-    audio_block_t *block = receiveWritable(0);
-    if (!block) return;
+void AudioEffectOverdrive::setDrive(float drive) {
+  drive = constrain(drive, 0.0f, 1.0f);
 
-    for (int i = 0; i < AUDIO_BLOCK_SAMPLES; i++) {
-        float sample = (float)block->data[i] / 32768.0f;
+  const float t = drive * drive * drive;
 
-        // Apply tempGain to bring signal up to level
-        sample *= tempGain;
+  Rdrive = RdriveMin + t * (RdriveMax - RdriveMin);
+}
 
-        float cubicGain = drive * overtoneMix;
-        float tanhGain = drive * (1.0f - overtoneMix);
+void AudioEffectOverdrive::setTone(float tone) {
+  tone = constrain(tone, 0.0f, 1.0f);
+  Rtone = RtoneMax - tone * (RtoneMax - RtoneMin);
+}
 
-        // Cubic distortion (creates overtones)
-        sample *= cubicGain;
-        sample = sample - (1.0f / 3.0f) * sample * sample * sample;
+void AudioEffectOverdrive::setLevel(float level) {
+  this->level = constrain(level, 0.0f, 1.0f);
+}
 
-        // Tanh soft clip
-        sample *= tanhGain;
-        sample = tanhf(sample);
+// KCL at the inverting input node of the op-amp
+inline float AudioEffectOverdrive::kcl(float Vo, float Vin, float Vx) const {
+  const float x = Vo - Vin;
+  return  (x / Rdrive) 
+          + (Cf / dt * (x - VCf)) 
+          + Id(x, saturationCurrent, idealityFactor, thermalVoltage) 
+          - ((Vin - Vx) / Rg);
+}
+// Derivative of KCL equation wrt Vo
+inline float AudioEffectOverdrive::kclDerivative(float Vo, float Vin) const {
+  const float x = Vo - Vin;
+  return  (1.0f / Rdrive) 
+          + (Cf / dt) 
+          + dId(x, saturationCurrent, idealityFactor, thermalVoltage);
+}
 
-        // Revert tempGain and apply level
-        sample /= tempGain;
-        sample *= level;
+float AudioEffectOverdrive::processSample(float sample) {
+  // Input high-pass
+  updateShuntCapVoltage(sample, VCin, Rin, Cin);
+  const float Vin = sample - VCin;
 
-        // Clamp to [-1.0, 1.0]
-        sample = constrain(sample, -1.0f, 1.0f);
-        
-        block->data[i] = (int16_t)(sample * 32767.0f);
-    }
+  // Update VCg
+  updateShuntCapVoltage(Vin, VCg, Rg, Cg);
 
-    transmit(block);
-    release(block);
+  // Newton–Raphson solve for Vo
+  float Vo = VoPrev;
+  for (int i = 0; i < 5; i++) {
+    const float f  = kcl(Vo, Vin, VCg);
+    const float df = kclDerivative(Vo, Vin);
+    Vo -= 0.5f *f / (df + 1e-12f);
+  }
+  
+  // Update states
+  VoPrev = Vo;
+  VCf  = Vo - Vin;
+  
+
+  // Tone control
+  updateShuntCapVoltage(Vo, VCt, Rtone, Ct);
+
+  return VCt * level;
 }

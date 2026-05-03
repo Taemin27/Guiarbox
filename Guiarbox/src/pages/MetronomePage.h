@@ -1,5 +1,18 @@
-// 'Metronome', 160x80px
-const unsigned char metronomeHome [] = {
+#pragma once
+
+#include "Page.h"
+#include "../config/Colors.h"
+#include "../config/SystemBitmaps.h"
+
+
+extern GFXBuffer_t display;
+extern Bounce bounce;
+extern AudioMixer4 masterMixer;
+extern AudioSynthSimpleDrum metronomeDrum;
+extern void drawArrows();
+extern int readEncoder();
+
+const unsigned char METRONOME_HOME_BITMAP [] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -102,229 +115,247 @@ const unsigned char metronomeHome [] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-
-
-
-int metronome_cursorLoc = 0;
-bool metronome_valueSelected = false;
-int metronome_volume = 10;
-
-
-void metronome_setup() {
-  display.fillScreen(BLACK);
-  display.drawBitmap(0, 0, metronomeHome, 160, 80, WHITE);
-  drawArrows();
-  display.display();
-}
-
-void metronome_loop() {
-  bounce.update();
-  if(bounce.changed() && bounce.read() == LOW) {
-    if(!pageSelected) {
-      pageSelected = true;
-      metronome_refresh();
+class MetronomePage : public Page {
+public:
+    void home() override {
+        display.fillScreen(BLACK);
+        display.drawBitmap(0, 0, METRONOME_HOME_BITMAP, 160, 80, WHITE);
+        drawArrows();
+        display.display();
     }
-    else if(pageSelected) {
-      switch(metronome_cursorLoc) {
-        case 0:
-          pageSelected = false;
-          metronome_setup();
-          break;
-        case 1:
-          metronome_on = !metronome_on;
-          metronome_refresh();
-          break;
-        default:
-          metronome_valueSelected = !metronome_valueSelected;
-          metronome_refresh();
-          break;
-      }
+
+    void setup() override {
+        setActive(true);
+        refresh();
     }
-  }
-  
 
-  if (pageSelected) {
-    // Encoder
-    int encoder = readEncoder();
-    if(encoder == 0) {
-      
+    void update() override {
+        if (!isOn) return;
+        float currentMillis = millis();
+        if ((currentMillis - previousMillis) < (60000 / bpm)) return;
+
+        if (++currentBeat > beatsPerBar || currentBeat == 1) {
+            currentBeat = 1;
+            metronomeDrum.frequency(440);
+            metronomeDrum.noteOn();
+        } else {
+            metronomeDrum.frequency(220);
+            metronomeDrum.noteOn();
+        }
+        if (isActive()) {
+            metronome_drawIndicator();
+            display.display();
+        }
+        previousMillis = currentMillis;
     }
-    else {
-      // Right
-      if(encoder == 1) {
-        if(metronome_valueSelected) {
-          switch(metronome_cursorLoc) {
-            case 2:
-              if(metronome_volume < 20) {
-                metronome_volume ++;
-              }
-              break;
-            case 3:
-              if(metronome_beatsPerBar < 16) {
-                metronome_beatsPerBar ++;
-              }
-              break;
-            case 4:
-              if(metronome_bpm < 600) {
-                metronome_bpm ++;
-              }
-              break;
-          }
-        }
-        else {
-          if(metronome_cursorLoc < 4) {
-            metronome_cursorLoc ++;
-          }
-        }
-      }
 
-      // Left
-      else if(encoder == -1) {
-        if(metronome_valueSelected) {
-          switch(metronome_cursorLoc) {
-            case 2:
-              if(metronome_volume > 0) {
-                metronome_volume --;
-              }
-              break;
-            case 3:
-              if(metronome_beatsPerBar > 1) {
-                metronome_beatsPerBar --;
-              }
-              break;
-            case 4:
-              if(metronome_bpm > 10) {
-                metronome_bpm --;
-              }
-              break;
-          }
+    void loop() override {
+        if(bounce.fell()) {
+            switch(cursorLoc) {
+                case 0:
+                    setActive(false);
+                    home();
+                    break;
+                case 1:
+                    isOn = !isOn;
+                    refresh();
+                    break;
+                default:
+                    valueSelected = !valueSelected;
+                    refresh();
+                break;
+            }
+            
         }
-        else {
-          if(metronome_cursorLoc > 0) {
-            metronome_cursorLoc --;
-          }
+        
+
+        // Encoder
+        int encoder = readEncoder();
+        
+        if(encoder == 1) {
+            if(valueSelected) {
+                switch(cursorLoc) {
+                    case 2:
+                    if(volume < 20) {
+                        volume ++;
+                    }
+                    break;
+                    case 3:
+                    if(beatsPerBar < 16) {
+                        beatsPerBar ++;
+                    }
+                    break;
+                    case 4:
+                    if(bpm < 600) {
+                        bpm ++;
+                    }
+                    break;
+                }
+            }
+            else {
+                if(cursorLoc < 4) {
+                    cursorLoc ++;
+                }
+            }
         }
-      }
-      metronome_refresh();
-      display.display();
+
+        // Left
+        else if(encoder == -1) {
+            if(valueSelected) {
+                switch(cursorLoc) {
+                    case 2:
+                        if(volume > 0) {
+                            volume --;
+                        }
+                        break;
+                    case 3:
+                        if(beatsPerBar > 1) {
+                            beatsPerBar --;
+                        }
+                        break;
+                    case 4:
+                        if(bpm > 10) {
+                            bpm --;
+                        }
+                        break;
+                }
+            }
+            else {
+                if(cursorLoc > 0) {
+                    cursorLoc --;
+                }
+            }
+        }
+        refresh();
+        display.display();
+        
     }
-  }
-}
 
-void metronome_refresh() {
-  masterMixer.gain(2, float(metronome_volume) / 5);
+private:
+    bool isOn = false;
+    bool valueSelected = false;
 
-  // UI
-  display.fillScreen(BLACK);
-  display.setTextColor(WHITE, BLACK);
-  display.setTextSize(1);
+    int cursorLoc = 0;
 
-  display.setCursor(0, 0);
-  display.print("<<<");
+    int volume = 10;
+    int bpm = 100;
+    int beatsPerBar = 4;
+    int currentBeat = 0;
 
-  display.setCursor(6, 72);
-  display.print("Beats/Bar: " + String(metronome_beatsPerBar) + " ");
+    float previousMillis = 0;
 
-  display.setCursor(106, 72);
-  display.print("BPM: " + String(metronome_bpm) + " ");
+    void refresh() {
+        masterMixer.gain(2, float(volume) / 5);
 
-  if (metronome_on) {
-    display.fillRect(73, 50, 4, 16, WHITE);
-    display.fillRect(82, 50, 4, 16, WHITE);
-  }
-  else {
-    display.fillTriangle(72, 50, 72, 66, 87, 58, WHITE);
-  }
+        // UI
+        display.fillScreen(BLACK);
+        display.setTextColor(WHITE, BLACK);
+        display.setTextSize(1);
 
-  display.drawBitmap(120, 52, Volume, 14, 12, WHITE);
-  display.setCursor(140, 54);
-  display.print(String(metronome_volume) + " ");
+        display.setCursor(0, 0);
+        display.print("<<<");
 
-  // Selection highlight
-  display.setTextColor(BLUE, BLACK);
-  switch(metronome_cursorLoc) {
-    case 0:
-      display.setCursor(0, 0);
-      display.print("<<<");
-      break;
-    case 1:
-      if (metronome_on) {
-        display.fillRect(73, 50, 4, 16, BLUE);
-        display.fillRect(82, 50, 4, 16, BLUE);
-      }
-      else {
-        display.fillTriangle(72, 50, 72, 66, 87, 58, BLUE);
-      }
-      break;
-    case 2:
-      if(metronome_valueSelected) {
-        display.setCursor(140, 54);
-        display.print(String(metronome_volume) + " ");
-      }
-      else {
-        display.drawBitmap(120, 52, Volume, 14, 12, BLUE);
-      }
-      break;
-    case 3:
-      if(metronome_valueSelected) {
-        display.setCursor(72, 72);
-        display.print(String(metronome_beatsPerBar) + " ");
-      }
-      else {
         display.setCursor(6, 72);
-        display.print("Beats/Bar: ");
-      }
+        display.print("Beats/Bar: " + String(beatsPerBar) + " ");
 
-      break;
-    case 4:
-      if(metronome_valueSelected) {
-        display.setCursor(136, 72);
-        display.print(String(metronome_bpm) + " ");
-      }
-      else {
         display.setCursor(106, 72);
-        display.print("BPM: ");
-      }
+        display.print("BPM: " + String(bpm) + " ");
 
-      break;
-  }
+        if (isOn) {
+            display.fillRect(73, 50, 4, 16, WHITE);
+            display.fillRect(82, 50, 4, 16, WHITE);
+        }
+        else {
+            display.fillTriangle(72, 50, 72, 66, 87, 58, WHITE);
+        }
 
-  metronome_drawIndicator();
-  display.display();
-}
+        display.drawBitmap(120, 52, Volume, 14, 12, WHITE);
+        display.setCursor(140, 54);
+        display.print(String(volume) + " ");
 
-void metronome_drawIndicator() {
-  display.fillRect(0, 15, 160, 28, BLACK);
-  if(metronome_beatsPerBar <= 8) {
-    for(int i = 0; i < metronome_beatsPerBar; i++) {
-      int x = 20 * i + 80 - 10 * (metronome_beatsPerBar - 1);
-      if(i == metronome_currentBeat - 1) {
-        display.fillCircle(x, 28, 5, YELLOW);
-      }
-      else {
-        display.drawCircle(x, 28, 5, YELLOW);
-      }
-      
+        // Selection highlight
+        display.setTextColor(BLUE, BLACK);
+        switch(cursorLoc) {
+            case 0:
+                display.setCursor(0, 0);
+                display.print("<<<");
+                break;
+            case 1:
+                if (isOn) {
+                    display.fillRect(73, 50, 4, 16, BLUE);
+                    display.fillRect(82, 50, 4, 16, BLUE);
+                }
+                else {
+                    display.fillTriangle(72, 50, 72, 66, 87, 58, BLUE);
+                }
+                break;
+            case 2:
+                if(valueSelected) {
+                    display.setCursor(140, 54);
+                    display.print(String(volume) + " ");
+                }
+                else {
+                    display.drawBitmap(120, 52, Volume, 14, 12, BLUE);
+                }
+                break;
+            case 3:
+                if(valueSelected) {
+                    display.setCursor(72, 72);
+                    display.print(String(beatsPerBar) + " ");
+                }
+                else {
+                    display.setCursor(6, 72);
+                    display.print("Beats/Bar: ");
+                }
+                break;
+            case 4:
+                if(valueSelected) {
+                    display.setCursor(136, 72);
+                    display.print(String(bpm) + " ");
+                }
+                else {
+                    display.setCursor(106, 72);
+                    display.print("BPM: ");
+                }
+                break;
+        }
+
+        metronome_drawIndicator();
+        display.display();
     }
-  }
-  else {
-    for(int i = 0; i < 8; i++) {
-      int x = 20 * i + 80 - 10 * 7;
-      if(i == metronome_currentBeat - 1) {
-        display.fillCircle(x, 20, 5, YELLOW);
-      }
-      else {
-        display.drawCircle(x, 20, 5, YELLOW);
-      }
+
+    void metronome_drawIndicator() {
+        display.fillRect(0, 15, 160, 28, BLACK);
+        if(beatsPerBar <= 8) {
+            for(int i = 0; i < beatsPerBar; i++) {
+                int x = 20 * i + 80 - 10 * (beatsPerBar - 1);
+                if(i == currentBeat - 1) {
+                    display.fillCircle(x, 28, 5, YELLOW);
+                }
+                else {
+                    display.drawCircle(x, 28, 5, YELLOW);
+                }
+            }
+        }
+        else {
+            for(int i = 0; i < 8; i++) {
+                int x = 20 * i + 80 - 10 * 7;
+                if(i == currentBeat - 1) {
+                    display.fillCircle(x, 20, 5, YELLOW);
+                }
+                else {
+                    display.drawCircle(x, 20, 5, YELLOW);
+                }
+            }
+            for(int i = 0; i < beatsPerBar - 8; i++) {
+                int x = 20 * i + 80 - 10 * (beatsPerBar - 9);\
+                if(i == currentBeat - 9) {
+                    display.fillCircle(x, 37, 5, YELLOW);
+                }
+                else {
+                    display.drawCircle(x, 37, 5, YELLOW);
+                }
+            }
+        }
     }
-    for(int i = 0; i < metronome_beatsPerBar - 8; i++) {
-      int x = 20 * i + 80 - 10 * (metronome_beatsPerBar - 9);\
-      if(i == metronome_currentBeat - 9) {
-        display.fillCircle(x, 37, 5, YELLOW);
-      }
-      else {
-        display.drawCircle(x, 37, 5, YELLOW);
-      }
-    }
-  }
-}
+};

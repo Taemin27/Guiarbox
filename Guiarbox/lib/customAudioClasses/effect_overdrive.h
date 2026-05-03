@@ -19,6 +19,10 @@ public:
 
   float processSample(float sample) override;
 
+  void enable();
+  void disable();
+  bool isEnabled() const;
+
 private:
   /* Schematics:
 
@@ -34,6 +38,8 @@ private:
                          Cg ─ Rg ─┴─ Rdrive ─┘
 
   */
+
+  bool enabled = false;
 
   // Controls
   float Rdrive;       // Variable resistor in feedback loop for drive control
@@ -53,7 +59,8 @@ private:
   static constexpr float RdriveMax = 500000.0f;
 
   static constexpr float RtoneMin = 5000.0f;
-  static constexpr float RtoneMax = 10000.0f;
+  // Wider range so the darkest settings can get genuinely dark.
+  static constexpr float RtoneMax = 47000.0f;
 
   // Constants
   static constexpr float Rin = 1.0e6f;  // 1M Ohm resistor at input for high-pass
@@ -72,6 +79,8 @@ private:
 
   inline float kcl(float Vo, float Vin, float Vx) const;
   inline float kclDerivative(float Vo, float Vin) const;
+
+  
 };
 
 #endif

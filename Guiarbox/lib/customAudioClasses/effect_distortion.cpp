@@ -1,5 +1,16 @@
 #include "effect_distortion.h"
 
+
+void AudioEffectDistortion::enable() {
+  enabled = true;
+}
+void AudioEffectDistortion::disable() {
+  enabled = false;
+}
+bool AudioEffectDistortion::isEnabled() const {
+  return enabled;
+}
+
 void AudioEffectDistortion::setDrive(float drive) {
   drive = constrain(drive, 0.0f, 1.0f);
 
@@ -8,7 +19,11 @@ void AudioEffectDistortion::setDrive(float drive) {
   Rdrive = RdriveMin + t * (RdriveMax - RdriveMin);
 }
 void AudioEffectDistortion::setTone(float tone) {
-  Rtone = RtoneMax - constrain(tone, 0.0f, 1.0f) * (RtoneMax - RtoneMin);
+  tone = constrain(tone, 0.0f, 1.0f);
+  // Use a log-style taper for a more musical sweep:
+  // tone=0 -> RtoneMax (dark), tone=1 -> RtoneMin (bright)
+  const float t = sqrtf(tone);
+  Rtone = RtoneMax * powf((RtoneMin / RtoneMax), t);
 }
 void AudioEffectDistortion::setLevel(float level) {
   level = constrain(level, 0.0f, 1.0f);
@@ -120,6 +135,10 @@ inline float AudioEffectDistortion::clipStageKclDerivative(float Vc) const {
 }
 
 float AudioEffectDistortion::processSample(float sample) {
+  if (!enabled) {
+    return sample;
+  }
+
   // Input high-pass
   updateShuntCapVoltage(sample, VCin, Rin, Cin);
   float Vin1 = sample - VCin;

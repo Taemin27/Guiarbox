@@ -104,8 +104,6 @@ const unsigned char recordHome[] = {
 
 bool record_valueSelected = false;
 int record_cursorLoc = 0;
-bool record_isRecording = false;
-int record_currentBank = 1;
 int record_mode = 0;  // 0: Guitar Only  1: Everything 2: Without Effects
 
 void record_setup() {
@@ -122,22 +120,41 @@ void record_loop() {
 			pageSelected = true;
 			record_refresh();
 		} else if (pageSelected) {
-			switch (backingTrack_cursorLoc) {
+			switch (record_cursorLoc) {
 				case 0:
 					pageSelected = false;
 					record_setup();
 					break;
 				case 2:
-
-					break;
-				case 3:
-
+					if (record_state == 0 && record_isBankUsed[record_currentBank]) {
+						// Start playback
+						record_state = 2;
+						startRecordingPlayback();
+					} 
+					else if (record_state == 0 && !record_isBankUsed[record_currentBank]) {
+						// Start recording
+						record_state = 1;
+						startRecording();
+					} 
+					else if (record_state == 1) {
+						// Stop recording
+						record_state = 0;
+						stopRecording();
+						record_isBankUsed[record_currentBank] = true;
+					} 
+					else if (record_state == 2) {
+						// Stop playback
+						record_state = 0;
+						stopRecordingPlayback();
+					}
+					record_refresh();
 					break;
 				case 4:
 
 					break;
 				default:
 					record_valueSelected = !record_valueSelected;
+					record_refresh();
 					break;
 			}
 		}
@@ -155,7 +172,16 @@ void record_loop() {
 				if (record_valueSelected) {
 					switch (record_cursorLoc) {
 						case 1:
-
+							record_currentBank++;
+							if (record_currentBank > RECORD_BANK_SIZE) {
+								record_currentBank = 1;
+							}
+							break;
+						case 3:
+							record_mode++;
+							if (record_mode > 2) {
+								record_mode = 0;
+							}
 							break;
 						case 5:
 
@@ -173,7 +199,16 @@ void record_loop() {
 				if (record_valueSelected) {
 					switch (record_cursorLoc) {
 						case 1:
-
+							record_currentBank--;
+							if (record_currentBank < 1) {
+								record_currentBank = RECORD_BANK_SIZE;
+							}
+							break;
+						case 3:
+							record_mode--;
+							if (record_mode < 0) {
+								record_mode = 2;
+							}
 							break;
 						case 5:
 
@@ -206,8 +241,7 @@ void record_refresh() {
 	}
 	display.println();
 
-	display.fillCircle(80, 34, 8, RED);
-	display.drawCircle(80, 34, 9, WHITE);
+	drawRecordButton(WHITE);
 
 	display.setCursor(0, 50);
 	display.print("Mode: ");
@@ -223,6 +257,9 @@ void record_refresh() {
 			display.println("Without Effects");
 			break;
 	}
+	
+	display.setCursor(0, 70);
+	display.println("Delete Recording");
 
 	// Selection highlight
 	display.setTextColor(BLUE, BLACK);
@@ -233,7 +270,14 @@ void record_refresh() {
 			break;
 		case 1:
 			if (record_valueSelected) {
-
+				display.setCursor(36, 10);
+				display.print(record_currentBank);
+				if (record_isBankUsed[record_currentBank]) {
+					display.print(" *   ");
+				}
+				else {
+					display.print("     ");
+				}
 			}
 			else {
 				display.setCursor(0, 10);
@@ -241,14 +285,14 @@ void record_refresh() {
 			}
 			break;
 		case 2:
-			display.drawCircle(80, 34, 9, BLUE);
+			drawRecordButton(BLUE);
 			break;
 		case 3:
 			if (record_valueSelected) {
-				display.setCursor(36, 10);
+				display.setCursor(36, 50);
 				switch (record_mode) {
 					case 0:
-						display.println("Guitar Only.   ");
+						display.println("Guitar Only    ");
 						break;
 					case 1:
 						display.println("Everything     ");
@@ -259,9 +303,123 @@ void record_refresh() {
 				}
 			}
 			else {
-				display.setCursor(50, 0);
+				display.setCursor(0, 50);
 				display.print("Mode: ");
 			}
+		case 4:
+			display.setCursor(0, 70);
+			display.println("Delete Recording");
+			break;
 	}
 	display.display();
+}
+
+void drawRecordButton(uint16_t outlineColor) {
+	switch (record_state) {
+		case 0: // Stopped
+			if (record_isBankUsed[record_currentBank]) {
+				// Triangle
+				display.fillTriangle(72, 26, 72, 42, 88, 34, RED);
+				display.drawTriangle(72, 26, 72, 42, 88, 34, outlineColor);
+			} else {
+				// Circle
+				display.fillCircle(80, 34, 8, RED);
+				display.drawCircle(80, 34, 9, outlineColor);
+			}
+			break;
+		case 1: // Recording
+			// Square
+			display.fillRect(72, 26, 16, 16, RED);
+			display.drawRect(72, 26, 16, 16, outlineColor);
+			break;
+		case 2: // Playing
+			// Square
+			display.fillRect(72, 26, 16, 16, RED);
+			display.drawRect(72, 26, 16, 16, outlineColor);
+			break;
+	}
+}
+
+void startRecording() {
+	String filename = "/recordings/RECORD" + String(record_currentBank) + ".WAV";
+	if (SD.exists(filename.c_str())) {
+		SD.remove(filename.c_str());
+	}
+	recordFile = SD.open(filename.c_str(), FILE_WRITE);
+	if (recordFile) {
+		writeWavHeader(recordFile, 0);
+		recordQueue.begin();
+		Serial.println("Started recording to " + filename);
+	}
+}
+
+void continueRecording() {
+	Serial.println(recordQueue.available());
+	if (recordQueue.available() >= 2) {
+
+		byte buffer[512];
+
+		memcpy(buffer, recordQueue.readBuffer(), 256);
+		recordQueue.freeBuffer();
+		memcpy(buffer+256, recordQueue.readBuffer(), 256);
+		recordQueue.freeBuffer();
+
+		recordFile.write(buffer, 512);
+	}
+}
+
+void stopRecording() {
+  	recordQueue.end();
+
+    while (recordQueue.available() > 0) {
+      recordFile.write((byte*)recordQueue.readBuffer(), 256);
+      recordQueue.freeBuffer();
+    }
+
+	uint32_t dataSize = recordFile.size() - 44;
+	recordFile.seek(0);
+	writeWavHeader(recordFile, dataSize);
+    recordFile.close();
+}
+
+// Helper to write a standard 16-bit mono 44.1kHz WAV header
+void writeWavHeader(File &file, unsigned long dataSize) {
+	const unsigned long sampleRate = 44100;
+	const unsigned int bitsPerSample = 16;
+	const unsigned int numChannels = 1;
+	unsigned long byteRate = sampleRate * numChannels * bitsPerSample / 8;
+	unsigned int blockAlign = numChannels * bitsPerSample / 8;
+	unsigned long chunkSize = 36 + dataSize;
+
+	file.seek(0);
+	file.write("RIFF", 4);
+	file.write((byte*)&chunkSize, 4);
+	file.write("WAVE", 4);
+	file.write("fmt ", 4);
+
+	unsigned long subChunk1Size = 16;
+	unsigned short audioFormat = 1;
+	file.write((byte*)&subChunk1Size, 4);
+	file.write((byte*)&audioFormat, 2);
+	file.write((byte*)&numChannels, 2);
+	file.write((byte*)&sampleRate, 4);
+	file.write((byte*)&byteRate, 4);
+	file.write((byte*)&blockAlign, 2);
+	file.write((byte*)&bitsPerSample, 2);
+
+	file.write("data", 4);
+	file.write((byte*)&dataSize, 4);
+}
+
+
+
+void startRecordingPlayback() {
+	const char* filename = String("/recordings/RECORD" + String(record_currentBank) + ".WAV").c_str();
+	recorderPlayWav.play(filename);
+	record_state = 2;
+}
+
+void stopRecordingPlayback() {
+	recorderPlayWav.stop();
+	record_state = 0;
 }

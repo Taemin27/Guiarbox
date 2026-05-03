@@ -21,7 +21,7 @@
  */
 #ifndef _ADAFRUIT_GFX_BUFFER_H
 #define _ADAFRUIT_GFX_BUFFER_H
-#include "../../Adafruit-GFX-Library-1.12.1/Adafruit_GFX.h"
+#include "../Adafruit-GFX-Library-1.12.1/Adafruit_GFX.h"
 
 #if defined(__IMXRT1062__)
 #include <DMAChannel.h>

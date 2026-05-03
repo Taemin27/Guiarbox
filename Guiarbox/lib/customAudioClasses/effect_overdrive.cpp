@@ -1,5 +1,16 @@
 #include "effect_overdrive.h"
 
+
+void AudioEffectOverdrive::enable() {
+  enabled = true;
+}
+void AudioEffectOverdrive::disable() {
+  enabled = false;
+}
+bool AudioEffectOverdrive::isEnabled() const {
+  return enabled;
+}
+
 void AudioEffectOverdrive::setDrive(float drive) {
   drive = constrain(drive, 0.0f, 1.0f);
 
@@ -10,7 +21,10 @@ void AudioEffectOverdrive::setDrive(float drive) {
 
 void AudioEffectOverdrive::setTone(float tone) {
   tone = constrain(tone, 0.0f, 1.0f);
-  Rtone = RtoneMax - tone * (RtoneMax - RtoneMin);
+  // Log-style taper for a more musical sweep:
+  // tone=0 -> RtoneMax (dark), tone=1 -> RtoneMin (bright)
+  const float t = sqrtf(tone);
+  Rtone = RtoneMax * powf((RtoneMin / RtoneMax), t);
 }
 
 void AudioEffectOverdrive::setLevel(float level) {
@@ -34,6 +48,10 @@ inline float AudioEffectOverdrive::kclDerivative(float Vo, float Vin) const {
 }
 
 float AudioEffectOverdrive::processSample(float sample) {
+  if (!enabled) {
+    return sample;
+  }
+
   // Input high-pass
   updateShuntCapVoltage(sample, VCin, Rin, Cin);
   const float Vin = sample - VCin;

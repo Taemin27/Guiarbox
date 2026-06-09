@@ -1,3 +1,5 @@
+#include "src/config/Display.h"
+
 // 'Tuner', 160x80px
 const unsigned char tunerHome [] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -119,7 +121,7 @@ void tuner_setup() {
   display.fillScreen(BLACK);
   display.drawBitmap(0, 0, tunerHome, 160, 80, WHITE);
   drawArrows();
-  display.display();
+  flushDisplay();
 }
 
 void tuner_loop() {
@@ -131,7 +133,7 @@ void tuner_loop() {
       masterMixer.gain(3, 0);
       notefreqAmp.gain(1);
       display.fillScreen(BLACK);
-      display.display();
+      flushDisplay();
     }
     else if(pageSelected) {
       pageSelected = false;
@@ -185,7 +187,7 @@ void tuner_loop() {
     }
     display.print(String(diffCent) + "    ");
 
-    display.display();
+    flushDisplay();
   }
 }
 

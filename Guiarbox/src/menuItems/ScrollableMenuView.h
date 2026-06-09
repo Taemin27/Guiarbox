@@ -13,17 +13,7 @@ class ScrollableMenuView : public MenuItem {
 public:
     ScrollableMenuView(
         std::initializer_list<std::initializer_list<MenuItem*>> itemsInit)
-        : MenuItem(0, 0), groupIndex(0), cursor(0) {
-        items.reserve(itemsInit.size());
-        for (const auto& groupInit : itemsInit) {
-            std::vector<MenuItem*> group;
-            group.reserve(groupInit.size());
-            for (MenuItem* item : groupInit) {
-                group.push_back(item);
-            }
-            items.push_back(std::move(group));
-        }
-    }
+        : ScrollableMenuView(toVec(itemsInit)) {}
 
     ScrollableMenuView(std::vector<std::vector<MenuItem*>> itemsInit)
         : MenuItem(0, 0), items(std::move(itemsInit)), groupIndex(0), cursor(0) {}
@@ -89,6 +79,16 @@ public:
 private:
     MenuItem* currentItem() {
         return items[(size_t)groupIndex][(size_t)cursor];
+    }
+
+    static std::vector<std::vector<MenuItem*>> toVec(
+        std::initializer_list<std::initializer_list<MenuItem*>> itemsInit) {
+        std::vector<std::vector<MenuItem*>> result;
+        result.reserve(itemsInit.size());
+        for (const auto& groupInit : itemsInit) {
+            result.emplace_back(groupInit);
+        }
+        return result;
     }
 
     std::vector<std::vector<MenuItem*>> items;

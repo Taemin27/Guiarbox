@@ -1,3 +1,5 @@
+#include "src/config/Display.h"
+
 // 'Record', 160x80px
 const unsigned char recordHome[] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -110,7 +112,7 @@ void record_setup() {
 	display.fillScreen(BLACK);
 	display.drawBitmap(0, 0, recordHome, 160, 80, WHITE);
 	drawArrows();
-	display.display();
+	flushDisplay();
 }
 
 void record_loop() {
@@ -221,7 +223,7 @@ void record_loop() {
 				}
 			}
 			record_refresh();
-			display.display();
+			flushDisplay();
 		}
 	}
 }
@@ -311,7 +313,7 @@ void record_refresh() {
 			display.println("Delete Recording");
 			break;
 	}
-	display.display();
+	flushDisplay();
 }
 
 void drawRecordButton(uint16_t outlineColor) {

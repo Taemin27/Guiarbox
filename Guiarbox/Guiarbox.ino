@@ -2,9 +2,11 @@
 #include "lib/Adafruit-GFX-Library-1.12.1/Adafruit_GFX.h"        //One character at size 1 = 6*8 pixels
 #include "lib/Adafruit_GFX_Buffer/src/Adafruit_GFX_Buffer.h"  // https://github.com/vjmuzik/Adafruit_GFX_Buffer.git
 #include "lib/Adafruit-ST7735-Library-1.11.0/Adafruit_ST7735.h"
+
 #include <Encoder.h>
 #include <Bounce2.h>
 #include "src/config/SystemBitmaps.h"
+#include "src/config/Display.h"
 #include <vector>
 
 #include "src/config/AudioChain.h"
@@ -17,14 +19,20 @@
 
 typedef Adafruit_ST7735 display_t;
 typedef Adafruit_GFX_Buffer<display_t> GFXBuffer_t;
-GFXBuffer_t display = GFXBuffer_t(80, 160, display_t(&SPI, CS, DC, RST));
+GFXBuffer_t display = GFXBuffer_t(80, 160, display_t(&SPI1, CS, DC, RST));
 
+void flushDisplay() {
+    while (!display.displayComplete()) {
+    }
+    while (!display.display()) {
+    }
+}
 
 // Encoder
 Encoder enc(3, 2);
 long oldPosition = 0;
 
-const int buttonPin = 1;
+const int buttonPin = 0;
 Bounce bounce = Bounce();
 
 // Pages
@@ -89,7 +97,7 @@ void setup() {
   bounce.interval(5);
 
   /* Audio */
-  AudioMemory(1000);
+  AudioMemory(500);
 
   sgtl5000_1.enable();
   sgtl5000_1.dacVolumeRampDisable();
@@ -120,7 +128,7 @@ void setup() {
   display.setTextColor(WHITE);
   display.setCursor(0, 73);
   display.print("Ver:Development");
-  display.display();
+  flushDisplay();
 
   delay(2000);
 
@@ -134,52 +142,25 @@ void setup() {
   if (!(SD.begin(SDCARD_CS_PIN))) {
     display.fillScreen(BLACK);
     display.drawBitmap(0, 0, noSDCard, 160, 80, WHITE);
-    display.display();
-    //while (1) {
+    flushDisplay();
+    while (1) {
       Serial.println("Unable to access the SD card");
-      delay(500);
-    //}
+      delay(1000);
+    }
   }
-
 
   /* Tuner */
   notefreqAmp.gain(0);
   notefreq1.begin(0.15);
 
   /* Effects */
-  //Dynamic
-  //wah.disable();
-  autoWah.disable();
-  noiseGate.disable();
-  compressor.disable();
-
-  //Drive
   overdrive.setLineInLevel(1);
   distortion.setLineInLevel(1);
 
-  overdrive.disable();
-  distortion.disable();
-
-  // Modulation
-  phaser.disable();
-  chorus.disable();
-  flanger.disable();
-  tremolo.disable();
-
-  //Delay
-  delayAmp.gain(0);
-  delayMixer.gain(0, 1);
-  delayMixer.gain(1, 0);
-  for (int i = 1; i < 7; i++) {
-    delay1.disable(i);
-  }
-
-  //Freeverb
-  reverbAmp.gain(0);
-  reverbMixer.gain(0, 1);
-  reverbMixer.gain(1, 0);
-  freeverb1.roomsize(0);
-  freeverb1.damping(0);
+  PresetManager::createDefaultPreset();
+  const int effectsPreset = PresetManager::getLastUsedPresetIndex();
+  PresetManager::loadPreset(effectsPreset);
+  effectsPage.setPresetIndex(effectsPreset);
 
   /* Metronome */
   metronomeDrum.pitchMod(0.5);
@@ -227,7 +208,7 @@ void setup() {
 int previousMemoryUsage = 0;
 
 void loop() {
-  //printAudioMemoryUsage();
+  printAudioMemoryUsage();
   float requestedVolume = usb1.volume();
   usbMixer.gain(0, requestedVolume);
   usbMixer.gain(1, requestedVolume);
@@ -277,7 +258,7 @@ void switchPage(int page) {
     pages[page] -> home();
 
     drawArrows();
-    display.display();
+    flushDisplay();
   }
 
 }

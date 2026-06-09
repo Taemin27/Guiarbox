@@ -1,3 +1,5 @@
+#include "src/config/Display.h"
+
 // 'Backing Track', 160x80px
 const unsigned char backingTrackHome [] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -114,7 +116,7 @@ void backingTrack_setup() {
   display.fillScreen(BLACK);
   display.drawBitmap(0, 0, backingTrackHome, 160, 80, WHITE);
   drawArrows();
-  display.display();
+  flushDisplay();
 }
 
 void backingTrack_loop() {
@@ -215,7 +217,7 @@ void backingTrack_loop() {
         }
       }
       backingTrack_refresh();
-      display.display();
+      flushDisplay();
     }
   }
 
@@ -225,7 +227,7 @@ void backingTrack_loop() {
     if (backingTrackPlayWav.isStopped()) {
       backingTrack_nextTrack();
       backingTrack_refresh();
-      display.display();
+      flushDisplay();
     }
 
     // If track is playing, update the progress bar every 5 seconds
@@ -234,7 +236,7 @@ void backingTrack_loop() {
       if (millis() - lastUpdate > 5000) {
         lastUpdate = millis();
         backingTrack_drawProgressBar();
-        display.display();
+        flushDisplay();
       }
     }
   }
@@ -338,7 +340,7 @@ void backingTrack_refresh() {
       break;
   } 
   backingTrack_drawProgressBar();
-  display.display();
+  flushDisplay();
 }
 
 void backingTrack_drawProgressBar() {

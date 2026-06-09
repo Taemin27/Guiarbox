@@ -2,6 +2,7 @@
 
 #include "Page.h"
 #include "../config/Colors.h"
+#include "../config/Display.h"
 
 extern GFXBuffer_t display;
 extern Bounce bounce;
@@ -133,14 +134,14 @@ public:
         display.fillScreen(BLACK);
         display.drawBitmap(0, 0, TUNER_HOME_BITMAP, 160, 80, WHITE);
         drawArrows();
-        display.display();
+        flushDisplay();
     }
 
     void setup() override {
         masterMixer.gain(3, 0);
         notefreqAmp.gain(1);
         display.fillScreen(BLACK);
-        display.display();
+        flushDisplay();
     }
 
     void loop() override {
@@ -195,7 +196,7 @@ public:
             }
             display.print(String(diffCent) + "    ");
 
-            display.display();
+            flushDisplay();
         }
     }
 private:

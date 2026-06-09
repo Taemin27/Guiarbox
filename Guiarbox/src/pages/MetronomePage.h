@@ -3,7 +3,7 @@
 #include "Page.h"
 #include "../config/Colors.h"
 #include "../config/SystemBitmaps.h"
-
+#include "../config/Display.h"
 
 extern GFXBuffer_t display;
 extern Bounce bounce;
@@ -121,7 +121,7 @@ public:
         display.fillScreen(BLACK);
         display.drawBitmap(0, 0, METRONOME_HOME_BITMAP, 160, 80, WHITE);
         drawArrows();
-        display.display();
+        flushDisplay();
     }
 
     void setup() override {
@@ -144,7 +144,7 @@ public:
         }
         if (isActive()) {
             metronome_drawIndicator();
-            display.display();
+            flushDisplay();
         }
         previousMillis = currentMillis;
     }
@@ -227,7 +227,7 @@ public:
             }
         }
         refresh();
-        display.display();
+        flushDisplay();
         
     }
 
@@ -321,7 +321,7 @@ private:
         }
 
         metronome_drawIndicator();
-        display.display();
+        flushDisplay();
     }
 
     void metronome_drawIndicator() {

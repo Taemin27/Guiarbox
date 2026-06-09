@@ -11,6 +11,10 @@
 #include "../menuItems/ScrollableMenuView.h"
 #include <vector>
 
+#include "../config/Effects/PresetManager.h"
+#include "../config/SystemBitmaps.h"
+#include "../config/Display.h"
+
 extern GFXBuffer_t display;
 extern Bounce bounce;
 extern void drawArrows();
@@ -116,78 +120,92 @@ const unsigned char EFFECTS_HOME_BITMAP [] = {
 
 class EffectsPage : public Page {
 private:
-    enum View { CATEGORY, PARAMETER };
-
     static constexpr int16_t ROW_HEIGHT_PX = 16;
     static constexpr int16_t SCREEN_W = 160;
     static constexpr int16_t SCREEN_H = 80;
-    static constexpr int16_t TEXT_HEIGHT_PRIMARY = 8;
 
-
-    /** Element counts — never use raw `sizeof(array)` as a loop bound; that is bytes, not items. */
     static constexpr int CATEGORY_ITEM_COUNT = 4;
+    static constexpr int EFFECT_ITEM_COUNT = 2;
     static constexpr int PARAMETER_ITEM_COUNT = 3;
 
-    /** Menu text: headers / category chrome use size 1; effect names & parameter values use size 2. */
-    static constexpr uint8_t SECONDARY_TEXT_SIZE = 1;
-    static constexpr uint8_t PRIMARY_TEXT_SIZE = 2;
+	enum View { CATEGORY, EFFECT, PARAMETER };
+    View currentView = CATEGORY;
 
-    static constexpr int16_t CATEGORY_HEADER_LINE_Y = 18;
-    static constexpr int16_t PARAMETER_HEADER_LINE_Y = 10;
-
-    View currentView = CATEGORY; // Currently selected view (Default to category view)
-    int categoryCursor = 0; // Current cursor location in category view
-    int parameterCursor = 0; // Current cursor location in parameter view
-    int preset = 0; // Currently selected preset
-    int categoryIndex = 0; // Currently selected category
-    /** Index into `parameterViewItems` for the effect whose parameter screen is open. */
+    int preset = 0;
+    bool presetDirty = false;
+    int categoryIndex = 0;
+    int categoryCursor = 0;
+    int effectCursor = 0;
+    int parameterCursor = 0;
     int parameterViewEffectIndex = 0;
 
+	MenuItem* categoryViewItems[CATEGORY_ITEM_COUNT];
 
-	struct CategoryViewScrollable {
+	struct CategoryEffects {
 		const char* categoryName;
-		ScrollableMenuView* effectButtons;
+		MenuItem* effectViewItems[EFFECT_ITEM_COUNT];
 	};
-	struct ParameterViewItems {
-		const char* effectName;
+
+	std::vector<CategoryEffects> categoryEffects;
+
+	struct EffectParameters {
 		EffectManager* manager;
-		MenuItem* items[3];
+		MenuItem* parameterViewItems[PARAMETER_ITEM_COUNT];
 	};
 
-	MenuItem* categoryViewItems[4];
-
-	/** Registry category names; must outlive OptionsSelector (it holds categoryNamesStorage.data()). */
-	std::vector<const char*> categoryNamesStorage;
-
-	std::vector<CategoryViewScrollable> categoryViewScrollables;
-	std::vector<ParameterViewItems> parameterViewItems;
-
-    void draw() {
-		display.fillScreen(BLACK);
-        if (currentView == CATEGORY) {
-            drawCategoryView();
-        } else {
-            drawParameterView();
-        }
-
-		const int16_t headerLineY =
-		    (currentView == PARAMETER) ? PARAMETER_HEADER_LINE_Y : CATEGORY_HEADER_LINE_Y;
-		display.drawFastHLine(0, headerLineY, SCREEN_W, GRAY);
-
-		display.display();
-    }
+	std::vector<EffectParameters> effectParameters;
 
     void drawCategoryView() {
-		categoryViewItems[3] = categoryViewScrollables[categoryIndex].effectButtons;
-		for (int i = 0; i < CATEGORY_ITEM_COUNT; i++) {
-			categoryViewItems[i]->draw();
-		}
+        for (int i = 0; i < CATEGORY_ITEM_COUNT; i++) {
+            categoryViewItems[i]->draw();
+        }
+
+        if (presetDirty) {
+            display.setTextSize(1);
+            display.setTextColor(WHITE, BLACK);
+            display.setCursor(126, 0);
+            display.print("*");
+        }
+    }
+
+    void drawEffectView() {
+        CategoryEffects& categoryEffect = categoryEffects[(size_t)categoryIndex];
+        for (int i = 0; i < EFFECT_ITEM_COUNT; i++) {
+            categoryEffect.effectViewItems[i]->draw();
+        }
+		display.setTextSize(2);
+        display.setTextWrap(false);
+        display.setTextColor(WHITE, BLACK);
+        display.setCursor(18, 0);
+        display.print(categoryEffect.categoryName);
     }
 
     void drawParameterView() {
-		for (int i = 0; i < PARAMETER_ITEM_COUNT; i++) {
-			parameterViewItems[(size_t)parameterViewEffectIndex].items[i]->draw();
-		}
+        EffectParameters& effectParameter = effectParameters[(size_t)parameterViewEffectIndex];
+        for (int i = 0; i < PARAMETER_ITEM_COUNT; i++) {
+            effectParameter.parameterViewItems[i]->draw();
+        }
+    }
+
+    void draw() {
+        display.fillScreen(BLACK);
+        switch (currentView) {
+            case CATEGORY:
+                drawCategoryView();
+                break;
+            case EFFECT:
+                drawEffectView();
+                break;
+            case PARAMETER:
+                drawParameterView();
+                break;
+        }
+        flushDisplay();
+    }
+
+    void applyPresetChange() {
+        PresetManager::loadPreset(preset);
+        presetDirty = false;
     }
 
 	// Generates the appropriate editor for the parameter
@@ -213,95 +231,127 @@ private:
     }
 
 public:
+
     EffectsPage() {
-        int numCategories = sizeof(effectsRegistry) / sizeof(effectsRegistry[0]);
-        categoryNamesStorage.reserve((size_t)numCategories);
-        for (int i = 0; i < numCategories; i++) {
-            categoryNamesStorage.push_back(effectsRegistry[i].name);
-        }
-		
-		// Category view items
-        categoryViewItems[0] = new SimpleButton(0, 0, 0, "<", [this]() { home(); }, PRIMARY_TEXT_SIZE, Align::Left);
-        categoryViewItems[1] = new IntEditor(18, 0, 54, "Preset: ", &preset, 1, 0, 99, SECONDARY_TEXT_SIZE, Align::Left);
-        categoryViewItems[2] = new OptionsSelector(18, 8, 108, "Category: ", categoryNamesStorage.data(), numCategories, &categoryIndex, SECONDARY_TEXT_SIZE, Align::Left);
+		int numCategories = sizeof(effectsRegistry) / sizeof(effectsRegistry[0]);
 
-		SimpleButton* parameterViewBackButton = new SimpleButton(0, 0, 0, "<", [this]() { currentView = CATEGORY; draw(); }, SECONDARY_TEXT_SIZE, Align::Left);
+		// ========== Category view items ==========
+		categoryViewItems[0] = new SimpleButton(0, 0, 0, "<", [this]() { home(); }, 2, Align::Left);
+        categoryViewItems[1] = new IntEditor(18, 0, 108, "Preset:", &preset, 1, 0, 99, 2, Align::Spread);
+		categoryViewItems[2] = new SimpleButton(144, 0, 16, SAVE, 16, 16, [this]() {
+            PresetManager::savePreset(preset);
+            presetDirty = false;
+        }, Align::Right);
 
-        constexpr int CATEGORY_LIST_PAGE_SIZE = 3;
-        constexpr int PARAMETER_LIST_PAGE_SIZE = 4;
-        constexpr int16_t LIST_BASE_X = 3;
-        constexpr int16_t CATEGORY_LIST_BASE_Y = 22;
-        constexpr int16_t PARAMETER_LIST_BASE_Y = 14;
+		// Scrollable menu view of buttons for each category
+		std::vector<std::vector<MenuItem*>> group;
+		std::vector<MenuItem*> page;
 
-		// For each category,
 		for (int i = 0; i < numCategories; i++) {
-			int numEffectsInCategory = effectsRegistry[i].effectManagers.size();
-
-			// For each effect in the category,
-            std::vector<std::vector<MenuItem*>> effectButtonPages;
-            effectButtonPages.reserve((numEffectsInCategory + CATEGORY_LIST_PAGE_SIZE - 1) / CATEGORY_LIST_PAGE_SIZE);
-			for (int j = 0; j < numEffectsInCategory; j++) {
-                const int pageIndex = j / CATEGORY_LIST_PAGE_SIZE;
-                const int row = j % CATEGORY_LIST_PAGE_SIZE;
-                if (pageIndex >= (int)effectButtonPages.size()) {
-                    effectButtonPages.emplace_back();
-                    effectButtonPages.back().reserve(CATEGORY_LIST_PAGE_SIZE);
-                }
-
-				EffectManager* mgr = effectsRegistry[i].effectManagers[j];
-				const char* effectName = mgr->getName();
-				const int effectListIndex = (int)parameterViewItems.size();
-				effectButtonPages[(size_t)pageIndex].push_back(
-                    new SimpleButton(
-                        LIST_BASE_X,
-                        CATEGORY_LIST_BASE_Y + row * ROW_HEIGHT_PX,
-                        SCREEN_W,
-                        effectName,
-                        [this, effectListIndex]() {
-							parameterViewEffectIndex = effectListIndex;
-							currentView = PARAMETER;
-							draw();
-						},
-                        PRIMARY_TEXT_SIZE,
-                        Align::Left));
-
-				// For each parameter of the effect,
-                const int parameterCount = mgr->getParameterCount();
-                std::vector<std::vector<MenuItem*>> parameterEditorPages;
-                parameterEditorPages.reserve((parameterCount + PARAMETER_LIST_PAGE_SIZE - 1) / PARAMETER_LIST_PAGE_SIZE);
-				for (int k = 0; k < mgr->getParameterCount(); k++) {
-                    const int paramPageIndex = k / PARAMETER_LIST_PAGE_SIZE;
-                    const int paramRow = k % PARAMETER_LIST_PAGE_SIZE;
-                    if (paramPageIndex >= (int)parameterEditorPages.size()) {
-                        parameterEditorPages.emplace_back();
-                        parameterEditorPages.back().reserve(PARAMETER_LIST_PAGE_SIZE);
-                    }
-					EffectParameter parameter = mgr->getParameters()[k];
-					parameterEditorPages[(size_t)paramPageIndex].push_back(
-					    paramToEditor(parameter, LIST_BASE_X, PARAMETER_LIST_BASE_Y + paramRow * ROW_HEIGHT_PX, SCREEN_W, PRIMARY_TEXT_SIZE, Align::Spread));
-					
-				}
-				parameterViewItems.push_back(
-                    {effectName,
-					 mgr,
-					 {parameterViewBackButton,
-					  new ToggleButton(18, 0, SCREEN_W, effectName, &mgr->enabled, SECONDARY_TEXT_SIZE, Align::Left),
-					  new ScrollableMenuView(std::move(parameterEditorPages))}});
+			if (page.size() >= 4) {
+				group.push_back(page);
+				page.clear();
 			}
-			categoryViewScrollables.push_back(
-                {categoryNamesStorage.at((size_t)i), new ScrollableMenuView(std::move(effectButtonPages))});
+			page.push_back(new SimpleButton(
+                0, 16 * (i % 4 + 1), 160, effectsRegistry[i].name,
+                [this, i]() {
+                    categoryIndex = i;
+                    effectCursor = 0;
+                    currentView = EFFECT;
+                    draw();
+                },
+                2, Align::Left));
+		}
+		if (!page.empty()) {
+			group.push_back(page);
+			page.clear();
+		}
+		categoryViewItems[3] = new ScrollableMenuView(group);
+		group.clear();
+
+
+		// ========== Effect view items ==========
+		for (int i = 0; i < numCategories; i++) {
+			CategoryEffects categoryEffect;
+			categoryEffect.categoryName = effectsRegistry[i].name;
+			categoryEffect.effectViewItems[0] = new SimpleButton(0, 0, 0, "<", [this]() { currentView = CATEGORY; draw(); }, 2, Align::Left);
+
+			categoryEffect.effectViewItems[0]->setFocused(true);
+
+			for (int j = 0; j < (int)effectsRegistry[i].effectManagers.size(); j++) {
+				if (page.size() >= 4) {
+					group.push_back(page);
+					page.clear();
+				}
+				EffectManager* mgr = effectsRegistry[i].effectManagers[j];
+                int flatIndex = 0;
+                for (int k = 0; k < i; k++) {
+                    flatIndex += (int)effectsRegistry[k].effectManagers.size();
+                }
+                flatIndex += j;
+				page.push_back(new SimpleButton(
+                    0, 16 * (j % 4 + 1), 160, mgr->getName(),
+                    [this, flatIndex]() {
+                        parameterViewEffectIndex = flatIndex;
+                        parameterCursor = 0;
+                        currentView = PARAMETER;
+                        draw();
+                    },
+                    2, Align::Left));
+			}
+			if (!page.empty()) {
+				group.push_back(page);
+				page.clear();
+			}
+			
+			categoryEffect.effectViewItems[1] = new ScrollableMenuView(group);
+			categoryEffects.push_back(categoryEffect);
+			group.clear();
 		}
 
-		categoryViewItems[3] = categoryViewScrollables.at(0).effectButtons;
-    }
+		// ========== Parameter view items ==========
+		for (int i = 0; i < numCategories; i++) {
+			for (int j = 0; j < (int)effectsRegistry[i].effectManagers.size(); j++) {
+				EffectParameters effectParameter;
+				EffectManager* mgr = effectsRegistry[i].effectManagers[j];
+				effectParameter.manager = mgr;
+				effectParameter.parameterViewItems[0] = new SimpleButton(0, 0, 0, "<", [this]() { currentView = EFFECT; draw(); }, 2, Align::Left);
+				effectParameter.parameterViewItems[1] = new ToggleButton(18, 0, 142, mgr->getName(), &mgr->enabled, 2, Align::Left);
 
+				effectParameter.parameterViewItems[0]->setFocused(true);
+
+				for (int k = 0; k < mgr->getParameterCount(); k++) {
+					if (page.size() >= 4) {
+						group.push_back(page);
+						page.clear();
+					}
+					EffectParameter parameter = mgr->getParameters()[k];
+					page.push_back(paramToEditor(parameter, 0, 16 * (k % 4 + 1), 160, 2, Align::Spread));
+				}
+				if (!page.empty()) {
+					group.push_back(page);
+					page.clear();
+				}
+				effectParameter.parameterViewItems[2] = new ScrollableMenuView(group);
+				effectParameters.push_back(effectParameter);
+				group.clear();
+			}
+		}
+		
+	}
+
+
+    void setPresetIndex(int index) {
+        preset = index;
+        presetDirty = false;
+    }
 
     void home() override {
 		setActive(false);
         display.fillScreen(BLACK);
         display.drawBitmap(0, 0, EFFECTS_HOME_BITMAP, 160, 80, WHITE);
         drawArrows();
-        display.display();
+        flushDisplay();
     }
 
     void setup() override {
@@ -312,55 +362,86 @@ public:
     }
 
     void loop() override {
-		// Button
         if (bounce.fell()) {
-			switch (currentView) {
-				case CATEGORY:
-					categoryViewItems[categoryCursor]->onButtonPress();
-					break;
-				case PARAMETER: {
-					ParameterViewItems& pv = parameterViewItems[(size_t)parameterViewEffectIndex];
-					pv.items[parameterCursor]->onButtonPress();
-					if (parameterCursor != 0) {
-						pv.manager->syncToChain();
-					}
-					break;
-				}
-			}
-			draw();
-		}
+            switch (currentView) {
+                case CATEGORY: {
+                    MenuItem* currentItem = categoryViewItems[categoryCursor];
+                    if (categoryCursor == 1) {
+                        const bool wasEditing = currentItem->isEditing();
+                        currentItem->onButtonPress();
+                        if (wasEditing && !currentItem->isEditing()) {
+                            applyPresetChange();
+                        }
+                    } else {
+                        currentItem->onButtonPress();
+                    }
+                    break;
+                }
+                case EFFECT:
+                    categoryEffects[(size_t)categoryIndex].effectViewItems[effectCursor]->onButtonPress();
+                    break;
+                case PARAMETER: {
+                    EffectParameters& ep = effectParameters[(size_t)parameterViewEffectIndex];
+                    ep.parameterViewItems[parameterCursor]->onButtonPress();
+                    if (parameterCursor != 0) {
+                        ep.manager->syncToChain();
+                        presetDirty = true;
+                    }
+                    break;
+                }
+            }
+            if (isActive()) {
+                draw();
+            }
+        }
 
-		// Encoder
-		int encoder = readEncoder();
-		if (encoder != 0) {
-			switch(currentView) {
-				case CATEGORY: {
-					MenuItem* currentItem = categoryViewItems[categoryCursor];
-					const int next = categoryCursor + encoder;
-					if (!currentItem->onEncoderTurn(encoder) && next >= 0 && next < CATEGORY_ITEM_COUNT) {
-						currentItem->setFocused(false);
-						categoryCursor = next;
-						categoryViewItems[categoryCursor]->setFocused(true);
-					}
-					break;
-				}
-				case PARAMETER: {
-					ParameterViewItems& pv = parameterViewItems[(size_t)parameterViewEffectIndex];
-					MenuItem* currentItem = pv.items[parameterCursor];
-					const int next = parameterCursor + encoder;
-					const bool consumed = currentItem->onEncoderTurn(encoder);
-					if (!consumed && next >= 0 && next < PARAMETER_ITEM_COUNT) {
-						currentItem->setFocused(false);
-						parameterCursor = next;
-						pv.items[parameterCursor]->setFocused(true);
-					}
-					if (consumed) {
-						pv.manager->syncToChain();
-					}
-					break;
-				}
-			}
-			draw();
-		}
+        int encoder = readEncoder();
+        if (encoder != 0) {
+            switch (currentView) {
+                case CATEGORY: {
+                    MenuItem* currentItem = categoryViewItems[categoryCursor];
+                    const int next = categoryCursor + encoder;
+                    const bool consumed = currentItem->onEncoderTurn(encoder);
+                    if (!consumed && next >= 0 && next < CATEGORY_ITEM_COUNT) {
+                        currentItem->setFocused(false);
+                        categoryCursor = next;
+                        categoryViewItems[categoryCursor]->setFocused(true);
+                    }
+                    if (consumed && categoryCursor == 1) {
+                        applyPresetChange();
+                    }
+                    break;
+                }
+                case EFFECT: {
+                    CategoryEffects& categoryEffect = categoryEffects[(size_t)categoryIndex];
+                    MenuItem* currentItem = categoryEffect.effectViewItems[effectCursor];
+                    const int next = effectCursor + encoder;
+                    if (!currentItem->onEncoderTurn(encoder) && next >= 0 && next < EFFECT_ITEM_COUNT) {
+                        currentItem->setFocused(false);
+                        effectCursor = next;
+                        categoryEffect.effectViewItems[effectCursor]->setFocused(true);
+                    }
+                    break;
+                }
+                case PARAMETER: {
+                    EffectParameters& ep = effectParameters[(size_t)parameterViewEffectIndex];
+                    MenuItem* currentItem = ep.parameterViewItems[parameterCursor];
+                    const int next = parameterCursor + encoder;
+                    const bool consumed = currentItem->onEncoderTurn(encoder);
+                    if (!consumed && next >= 0 && next < PARAMETER_ITEM_COUNT) {
+                        currentItem->setFocused(false);
+                        parameterCursor = next;
+                        ep.parameterViewItems[parameterCursor]->setFocused(true);
+                    }
+                    if (consumed) {
+                        ep.manager->syncToChain();
+                    }
+                    break;
+                }
+            }
+            if (isActive()) {
+                draw();
+            }
+        }
     }
 };

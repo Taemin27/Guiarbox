@@ -4,6 +4,10 @@
 #include "../config/Colors.h"
 #include "../config/SystemBitmaps.h"
 #include "../config/Display.h"
+#include "../menuItems/MenuItem.h"
+#include "../menuItems/SimpleButton.h"
+#include "../menuItems/ToggleButton.h"
+#include "../menuItems/IntEditor.h"
 
 extern GFXBuffer_t display;
 extern Bounce bounce;
@@ -117,6 +121,17 @@ const unsigned char METRONOME_HOME_BITMAP [] = {
 
 class MetronomePage : public Page {
 public:
+    MetronomePage() {
+        menuItems[0] = new SimpleButton(0, 0, 0, "<<<", [this]() {
+            setActive(false);
+            home();
+        }, 1, Align::Left);
+        menuItems[1] = new ToggleButton(72, 50, PLAYING, PAUSED, 16, 16, &isOn);
+        menuItems[2] = new IntEditor(120, 52, 40, Volume, 14, 12, &volume, 1, 0, 20, 1, Align::Spread);
+        menuItems[3] = new IntEditor(6, 72, 80, "Beats/Bar: ", &beatsPerBar, 1, 1, 16, 1, Align::Spread);
+        menuItems[4] = new IntEditor(106, 72, 54, "BPM: ", &bpm, 1, 10, 600, 1, Align::Spread);
+    }
+
     void home() override {
         display.fillScreen(BLACK);
         display.drawBitmap(0, 0, METRONOME_HOME_BITMAP, 160, 80, WHITE);
@@ -126,7 +141,11 @@ public:
 
     void setup() override {
         setActive(true);
-        refresh();
+        cursorLoc = 0;
+        for (int i = 0; i < MENU_ITEM_COUNT; i++) {
+            menuItems[i]->setFocused(i == 0);
+        }
+        draw();
     }
 
     void update() override {
@@ -143,98 +162,39 @@ public:
             metronomeDrum.noteOn();
         }
         if (isActive()) {
-            metronome_drawIndicator();
-            flushDisplay();
+            draw();
         }
         previousMillis = currentMillis;
     }
 
     void loop() override {
-        if(bounce.fell()) {
-            switch(cursorLoc) {
-                case 0:
-                    setActive(false);
-                    home();
-                    break;
-                case 1:
-                    isOn = !isOn;
-                    refresh();
-                    break;
-                default:
-                    valueSelected = !valueSelected;
-                    refresh();
-                break;
+        if (bounce.fell()) {
+            menuItems[cursorLoc]->onButtonPress();
+            if (isActive()) {
+                draw();
             }
-            
         }
-        
 
-        // Encoder
         int encoder = readEncoder();
-        
-        if(encoder == 1) {
-            if(valueSelected) {
-                switch(cursorLoc) {
-                    case 2:
-                    if(volume < 20) {
-                        volume ++;
-                    }
-                    break;
-                    case 3:
-                    if(beatsPerBar < 16) {
-                        beatsPerBar ++;
-                    }
-                    break;
-                    case 4:
-                    if(bpm < 600) {
-                        bpm ++;
-                    }
-                    break;
-                }
+        if (encoder != 0) {
+            MenuItem* currentItem = menuItems[cursorLoc];
+            const int next = cursorLoc + encoder;
+            if (!currentItem->onEncoderTurn(encoder) && next >= 0 && next < MENU_ITEM_COUNT) {
+                currentItem->setFocused(false);
+                cursorLoc = next;
+                menuItems[cursorLoc]->setFocused(true);
             }
-            else {
-                if(cursorLoc < 4) {
-                    cursorLoc ++;
-                }
+            if (isActive()) {
+                draw();
             }
         }
-
-        // Left
-        else if(encoder == -1) {
-            if(valueSelected) {
-                switch(cursorLoc) {
-                    case 2:
-                        if(volume > 0) {
-                            volume --;
-                        }
-                        break;
-                    case 3:
-                        if(beatsPerBar > 1) {
-                            beatsPerBar --;
-                        }
-                        break;
-                    case 4:
-                        if(bpm > 10) {
-                            bpm --;
-                        }
-                        break;
-                }
-            }
-            else {
-                if(cursorLoc > 0) {
-                    cursorLoc --;
-                }
-            }
-        }
-        refresh();
-        flushDisplay();
-        
     }
 
 private:
-    bool isOn = false;
-    bool valueSelected = false;
+    static constexpr int MENU_ITEM_COUNT = 5;
 
+    MenuItem* menuItems[MENU_ITEM_COUNT];
+    bool isOn = false;
     int cursorLoc = 0;
 
     int volume = 10;
@@ -244,80 +204,12 @@ private:
 
     float previousMillis = 0;
 
-    void refresh() {
+    void draw() {
         masterMixer.gain(2, float(volume) / 5);
 
-        // UI
         display.fillScreen(BLACK);
-        display.setTextColor(WHITE, BLACK);
-        display.setTextSize(1);
-
-        display.setCursor(0, 0);
-        display.print("<<<");
-
-        display.setCursor(6, 72);
-        display.print("Beats/Bar: " + String(beatsPerBar) + " ");
-
-        display.setCursor(106, 72);
-        display.print("BPM: " + String(bpm) + " ");
-
-        if (isOn) {
-            display.fillRect(73, 50, 4, 16, WHITE);
-            display.fillRect(82, 50, 4, 16, WHITE);
-        }
-        else {
-            display.fillTriangle(72, 50, 72, 66, 87, 58, WHITE);
-        }
-
-        display.drawBitmap(120, 52, Volume, 14, 12, WHITE);
-        display.setCursor(140, 54);
-        display.print(String(volume) + " ");
-
-        // Selection highlight
-        display.setTextColor(BLUE, BLACK);
-        switch(cursorLoc) {
-            case 0:
-                display.setCursor(0, 0);
-                display.print("<<<");
-                break;
-            case 1:
-                if (isOn) {
-                    display.fillRect(73, 50, 4, 16, BLUE);
-                    display.fillRect(82, 50, 4, 16, BLUE);
-                }
-                else {
-                    display.fillTriangle(72, 50, 72, 66, 87, 58, BLUE);
-                }
-                break;
-            case 2:
-                if(valueSelected) {
-                    display.setCursor(140, 54);
-                    display.print(String(volume) + " ");
-                }
-                else {
-                    display.drawBitmap(120, 52, Volume, 14, 12, BLUE);
-                }
-                break;
-            case 3:
-                if(valueSelected) {
-                    display.setCursor(72, 72);
-                    display.print(String(beatsPerBar) + " ");
-                }
-                else {
-                    display.setCursor(6, 72);
-                    display.print("Beats/Bar: ");
-                }
-                break;
-            case 4:
-                if(valueSelected) {
-                    display.setCursor(136, 72);
-                    display.print(String(bpm) + " ");
-                }
-                else {
-                    display.setCursor(106, 72);
-                    display.print("BPM: ");
-                }
-                break;
+        for (int i = 0; i < MENU_ITEM_COUNT; i++) {
+            menuItems[i]->draw();
         }
 
         metronome_drawIndicator();
@@ -348,7 +240,7 @@ private:
                 }
             }
             for(int i = 0; i < beatsPerBar - 8; i++) {
-                int x = 20 * i + 80 - 10 * (beatsPerBar - 9);\
+                int x = 20 * i + 80 - 10 * (beatsPerBar - 9);
                 if(i == currentBeat - 9) {
                     display.fillCircle(x, 37, 5, YELLOW);
                 }

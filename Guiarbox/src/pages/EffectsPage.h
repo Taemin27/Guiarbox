@@ -346,6 +346,14 @@ public:
         presetDirty = false;
     }
 
+    void refresh() override {
+        if (!isActive()) {
+            home();
+            return;
+        }
+        draw();
+    }
+
     void home() override {
 		setActive(false);
         display.fillScreen(BLACK);

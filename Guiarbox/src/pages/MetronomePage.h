@@ -190,6 +190,14 @@ public:
         }
     }
 
+    void refresh() override {
+        if (!isActive()) {
+            home();
+            return;
+        }
+        draw();
+    }
+
 private:
     static constexpr int MENU_ITEM_COUNT = 5;
 

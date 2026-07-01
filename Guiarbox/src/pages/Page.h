@@ -20,6 +20,8 @@ public:
 
     virtual void home() = 0;
 
+    virtual void refresh() {}
+
 private:
     bool active = false;
 };

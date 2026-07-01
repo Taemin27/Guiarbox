@@ -4,11 +4,19 @@
 #include <SD.h>
 #include <ArduinoJson.h>
 
+#include "../../utils/SdAudioActivity.h"
+#include "../../utils/SystemMessage.h"
 #include "EffectsRegistry.h"
+
+extern void refreshCurrentPage();
 
 /*
 
 Static class to manage the generation, saving, and loading of presets.
+
+RAM cache:
+  All preset switching is served from in-memory JsonDocuments so SD wav playback
+  is never interrupted. SD writes are deferred until no audio streaming uses the card.
 
 Files on the SD card:
   /presets/preset_<index>.json   — user presets
@@ -25,7 +33,21 @@ class PresetManager {
     static constexpr int CATEGORY_COUNT = sizeof(effectsRegistry) / sizeof(effectsRegistry[0]);
     static constexpr int MIN_PRESET_INDEX = 0;
     static constexpr int MAX_PRESET_INDEX = 99;
+    static constexpr int PRESET_SLOT_COUNT = MAX_PRESET_INDEX + 1;
     static constexpr const char* ENABLED_KEY = "enabled";
+
+    static JsonDocument defaultDoc;
+    static JsonDocument presetDocs[PRESET_SLOT_COUNT];
+    static bool slotCached[PRESET_SLOT_COUNT];
+    static bool slotDirty[PRESET_SLOT_COUNT];
+    static bool defaultDirty;
+    static int lastUsedIndex;
+    static bool lastUsedDirty;
+    static bool cacheReady;
+
+    static String presetPath(int presetIndex) {
+        return String(PRESETS_DIR) + "/preset_" + String(presetIndex) + ".json";
+    }
 
     static void ensurePresetsDir() {
         if (!SD.exists(PRESETS_DIR)) {
@@ -33,7 +55,7 @@ class PresetManager {
         }
     }
 
-    static bool readDocument(const String& path, JsonDocument& doc) {
+    static bool readDocumentFromSd(const String& path, JsonDocument& doc) {
         doc.clear();
         ensurePresetsDir();
 
@@ -64,16 +86,15 @@ class PresetManager {
         return true;
     }
 
-    static bool writeDocument(const String& path, const JsonDocument& doc) {
-        ensurePresetsDir();
-
+    static bool writeDocumentToSd(const String& path, const JsonDocument& doc) {
         if (doc.overflowed()) {
             Serial.print("Preset document overflow (");
             Serial.println(path);
             return false;
         }
 
-        // Teensy SD FILE_WRITE appends (O_AT_END); FILE_WRITE_BEGIN overwrites from the start.
+        ensurePresetsDir();
+
         File file = SD.open(path.c_str(), FILE_WRITE_BEGIN);
         if (!file) {
             Serial.print("Error opening preset file for write: ");
@@ -93,6 +114,32 @@ class PresetManager {
         return true;
     }
 
+    static bool copyDocument(JsonDocument& dst, const JsonDocument& src) {
+        dst.clear();
+        String buffer;
+        serializeJson(src, buffer);
+        if (buffer.length() == 0) {
+            return false;
+        }
+        DeserializationError err = deserializeJson(dst, buffer);
+        if (err || dst.overflowed()) {
+            Serial.print("Preset document copy failed: ");
+            Serial.println(err.c_str());
+            dst.clear();
+            return false;
+        }
+        return true;
+    }
+
+    static bool cacheDocument(int presetIndex, const JsonDocument& doc) {
+        presetIndex = clampPresetIndex(presetIndex);
+        if (!copyDocument(presetDocs[presetIndex], doc)) {
+            return false;
+        }
+        slotCached[presetIndex] = true;
+        return true;
+    }
+
     static int optionMaxIndex(const EffectParameter& param) {
         if (param.optionCount > 0) {
             return param.optionCount - 1;
@@ -100,7 +147,6 @@ class PresetManager {
         return (int)param.maxValue;
     }
 
-    // Clamp the in-memory value for a parameter to its allowed range.
     static void clampParameter(const EffectParameter& param) {
         switch (param.type) {
             case ParamType::Float:
@@ -120,7 +166,6 @@ class PresetManager {
         }
     }
 
-    // Write a clamped parameter value into a JSON object.
     static void writeParameter(JsonObject obj, const EffectParameter& param) {
         clampParameter(param);
         switch (param.type) {
@@ -137,7 +182,6 @@ class PresetManager {
         }
     }
 
-    // Read a JSON value into a parameter if the type is compatible; value is clamped on success.
     static bool applyParameter(const EffectParameter& param, JsonVariantConst value) {
         if (value.isNull()) {
             return false;
@@ -180,7 +224,6 @@ class PresetManager {
         return false;
     }
 
-    // Read enabled state from JSON, using fallback if missing from the primary document.
     static void applyEffectEnabled(
         EffectManager* mgr, JsonObjectConst effect, JsonObjectConst fallbackEffect) {
         JsonVariantConst value = effect[ENABLED_KEY];
@@ -200,7 +243,6 @@ class PresetManager {
         }
     }
 
-    // Build a JSON document from the current in-memory effect enabled states and parameter values.
     static JsonDocument buildDocument() {
         JsonDocument doc;
         for (int i = 0; i < CATEGORY_COUNT; i++) {
@@ -220,8 +262,6 @@ class PresetManager {
         return doc;
     }
 
-    // Apply JSON values to effect managers, using fallback for any missing effect, enabled state, or parameter.
-    // Fields missing from both documents are left unchanged. Syncs each effect to the audio chain.
     static void applyDocument(const JsonDocument& doc, const JsonDocument& fallback) {
         for (int i = 0; i < CATEGORY_COUNT; i++) {
             for (EffectManager* mgr : effectsRegistry[i].effectManagers) {
@@ -255,72 +295,162 @@ class PresetManager {
         }
     }
 
+    static void markLastUsedIndex(int presetIndex) {
+        lastUsedIndex = clampPresetIndex(presetIndex);
+        lastUsedDirty = true;
+    }
+
+    static bool flushLastUsedIndex() {
+        if (!lastUsedDirty) {
+            return true;
+        }
+        JsonDocument doc;
+        doc["index"] = lastUsedIndex;
+        if (!writeDocumentToSd(LAST_USED_PRESET_FILE, doc)) {
+            return false;
+        }
+        lastUsedDirty = false;
+        return true;
+    }
+
 public:
-    // Ensure preset_default.json exists on the SD card, creating it from init values if missing or invalid.
     static void createDefaultPreset() {
         JsonDocument doc;
-        if (readDocument(DEFAULT_PRESET_FILE, doc)) {
+        if (readDocumentFromSd(DEFAULT_PRESET_FILE, doc)) {
             return;
         }
-        writeDocument(DEFAULT_PRESET_FILE, buildDocument());
+        writeDocumentToSd(DEFAULT_PRESET_FILE, buildDocument());
     }
 
-    // Read the last-used preset index from preset_lastUsed.json; returns 0 if missing or invalid.
+    static void initCache() {
+        if (cacheReady) {
+            return;
+        }
+
+        for (int i = 0; i < PRESET_SLOT_COUNT; i++) {
+            slotCached[i] = false;
+            slotDirty[i] = false;
+            presetDocs[i].clear();
+        }
+        defaultDirty = false;
+        lastUsedDirty = false;
+
+        if (!readDocumentFromSd(DEFAULT_PRESET_FILE, defaultDoc)) {
+            copyDocument(defaultDoc, buildDocument());
+            defaultDirty = true;
+        }
+
+        for (int i = MIN_PRESET_INDEX; i <= MAX_PRESET_INDEX; i++) {
+            if (readDocumentFromSd(presetPath(i), presetDocs[i])) {
+                slotCached[i] = true;
+            } else {
+                presetDocs[i].clear();
+            }
+        }
+
+        JsonDocument lastUsedDoc;
+        if (readDocumentFromSd(LAST_USED_PRESET_FILE, lastUsedDoc) && !lastUsedDoc["index"].isNull()) {
+            lastUsedIndex = clampPresetIndex(lastUsedDoc["index"].as<int>());
+        } else {
+            lastUsedIndex = MIN_PRESET_INDEX;
+        }
+
+        cacheReady = true;
+        flushPendingWrites();
+    }
+
     static int getLastUsedPresetIndex() {
-        JsonDocument doc;
-        if (!readDocument(LAST_USED_PRESET_FILE, doc)) {
-            return MIN_PRESET_INDEX;
+        if (!cacheReady) {
+            JsonDocument doc;
+            if (!readDocumentFromSd(LAST_USED_PRESET_FILE, doc) || doc["index"].isNull()) {
+                return MIN_PRESET_INDEX;
+            }
+            return clampPresetIndex(doc["index"].as<int>());
         }
-        if (doc["index"].isNull()) {
-            return MIN_PRESET_INDEX;
-        }
-        return clampPresetIndex(doc["index"].as<int>());
+        return lastUsedIndex;
     }
 
-    // Write the last-used preset index to preset_lastUsed.json.
-    static void saveCurrentPresetIndex(int presetIndex) {
-        JsonDocument doc;
-        doc["index"] = clampPresetIndex(presetIndex);
-        writeDocument(LAST_USED_PRESET_FILE, doc);
-    }
-
-    // Load preset_<index>.json from the SD card.
-    // If that file is missing or invalid, loads preset_default.json instead.
-    // If both are missing or invalid, writes preset_default.json from current init values and leaves them as-is.
-    // When loading a user preset, missing fields fall back to preset_default.json.
     static void loadPreset(int presetIndex) {
+        if (!cacheReady) {
+            initCache();
+        }
+
         presetIndex = clampPresetIndex(presetIndex);
-
-        const String presetPath = String(PRESETS_DIR) + "/preset_" + String(presetIndex) + ".json";
-
-        JsonDocument primary;
-        JsonDocument fallback;
         JsonDocument empty;
 
-        if (readDocument(presetPath, primary)) {
-            readDocument(DEFAULT_PRESET_FILE, fallback);
-            applyDocument(primary, fallback);
-            saveCurrentPresetIndex(presetIndex);
-            return;
+        if (slotCached[presetIndex]) {
+            applyDocument(presetDocs[presetIndex], defaultDoc);
+        } else {
+            applyDocument(defaultDoc, empty);
         }
 
-        if (readDocument(DEFAULT_PRESET_FILE, primary)) {
-            applyDocument(primary, empty);
-            saveCurrentPresetIndex(presetIndex);
-            return;
-        }
-
-        writeDocument(DEFAULT_PRESET_FILE, buildDocument());
-        syncAllToChain();
-        saveCurrentPresetIndex(presetIndex);
+        markLastUsedIndex(presetIndex);
+        flushPendingWrites();
     }
 
-    // Write the current in-memory effect parameter and enabled values to preset_<index>.json.
     static void savePreset(int presetIndex) {
+        if (!cacheReady) {
+            initCache();
+        }
+
         presetIndex = clampPresetIndex(presetIndex);
-        const String presetPath = String(PRESETS_DIR) + "/preset_" + String(presetIndex) + ".json";
-        writeDocument(presetPath, buildDocument());
-        saveCurrentPresetIndex(presetIndex);
+        JsonDocument doc = buildDocument();
+        if (!cacheDocument(presetIndex, doc)) {
+            return;
+        }
+        slotDirty[presetIndex] = true;
+        markLastUsedIndex(presetIndex);
+        flushPendingWrites();
+        if (hasPendingWrites() && isSdAudioContended()) {
+            SystemMessage::show("Saved to memory. SD write delayed until playback or recording is stopped.", 2500, refreshCurrentPage);
+        }
+    }
+
+    static bool hasPendingWrites() {
+        if (!cacheReady) {
+            return false;
+        }
+        if (defaultDirty || lastUsedDirty) {
+            return true;
+        }
+        for (int i = MIN_PRESET_INDEX; i <= MAX_PRESET_INDEX; i++) {
+            if (slotDirty[i]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Persist dirty cache entries when SD is not streaming audio.
+    static void flushPendingWrites() {
+        if (!cacheReady || isSdAudioContended()) {
+            return;
+        }
+
+        if (defaultDirty) {
+            if (writeDocumentToSd(DEFAULT_PRESET_FILE, defaultDoc)) {
+                defaultDirty = false;
+            }
+        }
+
+        for (int i = MIN_PRESET_INDEX; i <= MAX_PRESET_INDEX; i++) {
+            if (!slotDirty[i]) {
+                continue;
+            }
+            if (writeDocumentToSd(presetPath(i), presetDocs[i])) {
+                slotDirty[i] = false;
+            }
+        }
+
+        flushLastUsedIndex();
     }
 };
 
+inline JsonDocument PresetManager::defaultDoc;
+inline JsonDocument PresetManager::presetDocs[PresetManager::PRESET_SLOT_COUNT];
+inline bool PresetManager::slotCached[PresetManager::PRESET_SLOT_COUNT] = {};
+inline bool PresetManager::slotDirty[PresetManager::PRESET_SLOT_COUNT] = {};
+inline bool PresetManager::defaultDirty = false;
+inline int PresetManager::lastUsedIndex = PresetManager::MIN_PRESET_INDEX;
+inline bool PresetManager::lastUsedDirty = false;
+inline bool PresetManager::cacheReady = false;

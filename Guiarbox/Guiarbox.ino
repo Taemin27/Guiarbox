@@ -7,8 +7,6 @@
 #include <Bounce2.h>
 #include "src/config/SystemBitmaps.h"
 #include "src/config/Display.h"
-#include <vector>
-
 #include "src/config/AudioChain.h"
 
 
@@ -21,12 +19,17 @@ typedef Adafruit_ST7735 display_t;
 typedef Adafruit_GFX_Buffer<display_t> GFXBuffer_t;
 GFXBuffer_t display = GFXBuffer_t(80, 160, display_t(&SPI1, CS, DC, RST));
 
+#include "src/utils/SystemMessage.h"
+
 void flushDisplay() {
+    SystemMessage::compositeIfVisible();
     while (!display.displayComplete()) {
     }
     while (!display.display()) {
     }
 }
+
+#include "src/config/Effects/PresetManager.h"
 
 // Encoder
 Encoder enc(3, 2);
@@ -40,24 +43,18 @@ Bounce bounce = Bounce();
 #include "src/pages/TunerPage.h"
 #include "src/pages/MetronomePage.h"
 #include "src/pages/EffectsPage.h"
+#include "src/pages/BackingTrackPage.h"
+#include "src/pages/RecordPage.h"
 
 // Forward declarations. Temporary.
 void effects_setup();
 void effects_loop();
-void backingTrack_setup();
-void backingTrack_loop();
-void record_setup();
-void record_loop();
-
-void continueRecording();
-void disableDrive();
 
 TunerPage tunerPage;
 MetronomePage metronomePage;
 EffectsPage effectsPage;
-
-LegacyPage backingTrackPage(backingTrack_setup, backingTrack_loop);
-LegacyPage recordPage(record_setup, record_loop);
+BackingTrackPage backingTrackPage;
+RecordPage recordPage;
 
 Page* pages[] = {
   &tunerPage,
@@ -75,16 +72,6 @@ bool pageSelected = false;
 const float ef_compressor_thresholdMax = 0.5;  //Adjust if needed (use compressorPeak.read() to find the right value)
 const float ef_compressor_ratio = 0.125;
 
-// BackingTrack global variables
-std::vector<String> backingTrack_files;
-
-// Recorder global variables
-#define RECORD_BANK_SIZE 99
-bool record_isBankUsed[RECORD_BANK_SIZE];
-File recordFile;
-int record_state = 0; // 0:Stopped 1:Recording 2:Playing
-int record_currentBank = 1;
-
 // SD
 #define SDCARD_CS_PIN 10
 #define SDCARD_MOSI_PIN 7
@@ -93,11 +80,17 @@ int record_currentBank = 1;
 void setup() {
   /* System */
   Serial.begin(9600);
+  while (!Serial && millis() < 3000) {
+  }
+  if (CrashReport) {
+    Serial.print(CrashReport);
+  }
+
   bounce.attach(buttonPin, INPUT_PULLUP);
   bounce.interval(5);
 
   /* Audio */
-  AudioMemory(500);
+  AudioMemory(800);
 
   sgtl5000_1.enable();
   sgtl5000_1.dacVolumeRampDisable();
@@ -158,6 +151,7 @@ void setup() {
   distortion.setLineInLevel(1);
 
   PresetManager::createDefaultPreset();
+  PresetManager::initCache();
   const int effectsPreset = PresetManager::getLastUsedPresetIndex();
   PresetManager::loadPreset(effectsPreset);
   effectsPage.setPresetIndex(effectsPreset);
@@ -166,46 +160,43 @@ void setup() {
   metronomeDrum.pitchMod(0.5);
   metronomeDrum.length(50);
 
-  /* BackingTrack*/
-  File backingTrackDir = SD.open("backingtracks");
-  while (true) {
-    File entry = backingTrackDir.openNextFile();
-    if (!entry) {
-      break;
-    }
-    if (!entry.isDirectory()) {
-      backingTrack_files.push_back((String)entry.name());
-      Serial.println(entry.name());
-    }
-    entry.close();
-  }
-  backingTrackDir.close();
+  backingTrackPage.initFiles();
+  recordPage.init();
 
-  playSDMixer.gain(0, 1);
-  playSDMixer.gain(1, 1);
-  
+  Serial.print("Audio memory max: ");
+  Serial.println(AudioMemoryUsageMax());
 
-  /* Record */
-  // Check used banks
-  for (int i = 0; i < RECORD_BANK_SIZE; i++) {
-    String filename = "recordings/RECORD" + String(i) + ".WAV";
-    if (SD.exists(filename.c_str())) {
-      record_isBankUsed[i] = true;
-    } else {
-      record_isBankUsed[i] = false;
-    }
-  }
-
-  playSDMixer.gain(2, 1);
-  playSDMixer.gain(3, 1);
-
-  
   sgtl5000_1.unmuteLineout();
 
   switchPage(0);
 }
 
 int previousMemoryUsage = 0;
+
+void refreshCurrentPage() {
+  pages[currentPage]->refresh();
+}
+
+void showPageEntryBlockedMessage() {
+  if (pages[currentPage] == &recordPage) {
+    SystemMessage::show("Can't record while backing track is active.", 2000, refreshCurrentPage);
+  } else if (pages[currentPage] == &backingTrackPage) {
+    SystemMessage::show("Can't switch to backing track while recording.", 2000, refreshCurrentPage);
+  }
+}
+
+bool pageEntryAllowed(int page) {
+  if (page < 0 || page >= pageCount) {
+    return false;
+  }
+  if (pages[page] == &recordPage && backingTrackPage.isTrackPlaying()) {
+    return false;
+  }
+  if (pages[page] == &backingTrackPage && recordPage.isRecorderBusy()) {
+    return false;
+  }
+  return true;
+}
 
 void loop() {
   printAudioMemoryUsage();
@@ -214,6 +205,14 @@ void loop() {
   usbMixer.gain(1, requestedVolume);
 
   bounce.update();
+
+  // Drain the record queue before other page work or display flushing can block SD I/O.
+  recordPage.update();
+  for (int i = 0; i < pageCount; i++) {
+    if (pages[i] != &recordPage) {
+      pages[i]->update();
+    }
+  }
 
   Page* p = pages[currentPage];
   bool isCurrentPageActive = p -> isActive();
@@ -225,14 +224,13 @@ void loop() {
   else {
     
     if (bounce.fell()) {
-      p -> setActive(true);
-      p -> setup();
+      if (pageEntryAllowed(currentPage)) {
+        p -> setActive(true);
+        p -> setup();
+      } else {
+        showPageEntryBlockedMessage();
+      }
     }
-  }
-
-  // Run all background services
-  for (int i = 0; i < pageCount; i++) {
-    pages[i] -> update();
   }
 
   // Use current active state — not the snapshot from the start of loop(), or encoder
@@ -240,16 +238,20 @@ void loop() {
   if (!pages[currentPage] -> isActive()) {
     int encoder = readEncoder();
     if (encoder != 0) {
-      switchPage(currentPage + encoder);
+      const int nextPage = currentPage + encoder;
+      if (nextPage >= 0 && nextPage < pageCount) {
+        switchPage(nextPage);
+      }
     }
   }
 
-  
-
-  // Record
-  if (record_state == 1) {
-    continueRecording();
+  // Page draw/flush can block for tens of ms; drain again after UI work.
+  if (recordPage.isRecording()) {
+    recordPage.update();
   }
+
+  PresetManager::flushPendingWrites();
+  SystemMessage::update();
 }
 
 void switchPage(int page) {

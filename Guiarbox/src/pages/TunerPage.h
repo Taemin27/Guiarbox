@@ -140,66 +140,83 @@ public:
     void setup() override {
         masterMixer.gain(3, 0);
         notefreqAmp.gain(1);
+        hasReading = false;
         display.fillScreen(BLACK);
         flushDisplay();
     }
 
+    void refresh() override {
+        if (!isActive()) {
+            home();
+            return;
+        }
+        if (hasReading) {
+            draw();
+        } else {
+            display.fillScreen(BLACK);
+            flushDisplay();
+        }
+    }
+
     void loop() override {
-        if(bounce.fell()) {
+        if (bounce.fell()) {
             setActive(false);
             notefreqAmp.gain(0);
             masterMixer.gain(3, 1);
             home();
         }
 
-        if(notefreq1.available()) {
-            float freq = notefreq1.read();
-
-            // Find closest note
-            int matchIndex = searchNote(FREQUENCIES, freq, 0, 59);
-            
-            
-            // Calculate difference in cents
-            int diffCent = round(1200 * log2(freq / FREQUENCIES[matchIndex]));
-            
-            // Print frequency
-            display.setTextColor(WHITE, BLACK);
-            display.setTextSize(1);
-            display.setCursor(0, 0);
-            display.print(String(freq) + " Hz ");
-            
-            // Draw bars
-            display.fillRect(0, 43, 160, 24, BLACK);
-            display.drawRect(80, 40, 2, 30, WHITE);
-            display.drawFastVLine(90, 50, 10, WHITE);
-            display.drawFastVLine(70, 50, 10, WHITE);
-            display.drawRect(79 + diffCent, 43, 4, 24, BLUE);
-
-            // Print note name
-            display.setTextSize(3);
-            display.setCursor(65, 11);
-            if(-10 < diffCent && diffCent < 10) {
-                display.setTextColor(GREEN, BLACK);
-            }
-            display.print(NOTE_NAMES[matchIndex] + " ");
-
-            // Print cents
-            display.setTextSize(1);
-            if(NOTE_NAMES[matchIndex].length() == 2) {
-                display.setCursor(102, 25);
-            } 
-            else {
-                display.setCursor(120, 25);
-            }
-            if(diffCent > 0) {
-                display.print("+");
-            }
-            display.print(String(diffCent) + "    ");
-
-            flushDisplay();
+        if (notefreq1.available()) {
+            lastFreq = notefreq1.read();
+            lastMatchIndex = searchNote(FREQUENCIES, lastFreq, 0, 59);
+            lastDiffCent = round(1200 * log2(lastFreq / FREQUENCIES[lastMatchIndex]));
+            hasReading = true;
+            draw();
         }
     }
+
 private:
+    bool hasReading = false;
+    float lastFreq = 0;
+    int lastMatchIndex = 0;
+    int lastDiffCent = 0;
+
+    void draw() {
+        display.setTextColor(WHITE, BLACK);
+        display.setTextSize(1);
+        display.setCursor(0, 0);
+        display.print(String(lastFreq) + " Hz ");
+
+        display.fillRect(0, 43, 160, 24, BLACK);
+        display.drawRect(80, 40, 2, 30, WHITE);
+        display.drawFastVLine(90, 50, 10, WHITE);
+        display.drawFastVLine(70, 50, 10, WHITE);
+        display.drawRect(79 + lastDiffCent, 43, 4, 24, BLUE);
+
+        display.setTextSize(3);
+        display.setCursor(65, 11);
+        if (-10 < lastDiffCent && lastDiffCent < 10) {
+            display.setTextColor(GREEN, BLACK);
+        } else {
+            display.setTextColor(WHITE, BLACK);
+        }
+        display.print(NOTE_NAMES[lastMatchIndex] + " ");
+
+        display.setTextSize(1);
+        display.setTextColor(WHITE, BLACK);
+        if (NOTE_NAMES[lastMatchIndex].length() == 2) {
+            display.setCursor(102, 25);
+        } else {
+            display.setCursor(120, 25);
+        }
+        if (lastDiffCent > 0) {
+            display.print("+");
+        }
+        display.print(String(lastDiffCent) + "    ");
+
+        flushDisplay();
+    }
+
     int searchNote(const float* array, float x, int start, int end) {
         if (start == end) {
             return start;

@@ -16,6 +16,7 @@
 #include "../../lib/customAudioClasses/effect_multiChorus.h"
 #include "../../lib/customAudioClasses/effect_flanger.h"
 #include "../../lib/customAudioClasses/effect_tremolo.h"
+#include "../../lib/customAudioClasses/effect_freeverb_fp.h"
 
 #include <Audio.h>
 #include <Wire.h>
@@ -39,7 +40,7 @@ AudioEffectAutoWah       autoWah;        //xy=607,568
 AudioEffectDistortion    distortion;     //xy=611,675
 AudioEffectFlanger       flanger;        //xy=727,857
 AudioMixer4              reverbMixer;    //xy=767,984
-AudioEffectFreeverb      freeverb1;      //xy=767,1035
+AudioEffectFreeverbFP    freeverb1;      //xy=767,1035
 AudioAmplifier           reverbAmp;      //xy=771,1073
 AudioEffectNoiseGate     noiseGate;      //xy=790,568
 AudioEffectFuzzFF          fuzzFF;          //xy=795,676

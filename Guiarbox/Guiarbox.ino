@@ -90,7 +90,16 @@ void setup() {
   bounce.interval(5);
 
   /* Audio */
-  AudioMemory(800);
+  AudioMemory(1000);
+
+  delayMixer.gain(0, 1);
+  delayMixer.gain(1, 0);
+  reverbAmp.gain(0);
+  reverbMixer.gain(0, 1);
+  reverbMixer.gain(1, 0);
+  freeverb1.setDecay(0);
+  freeverb1.setTone(0.5f);
+  freeverb1.setPredelayMs(0);
 
   sgtl5000_1.enable();
   sgtl5000_1.dacVolumeRampDisable();

@@ -10,7 +10,7 @@
 #include "../../lib/customAudioClasses/effect_distortion.h"
 #include "../../lib/customAudioClasses/effect_fuzz_FF.h"
 
-#include "../../lib/customAudioClasses/effect_pitchShift.h"
+#include "../../lib/customAudioClasses/effect_transpose.h"
 #include "../../lib/customAudioClasses/effect_autoWham.h"
 
 #include "../../lib/customAudioClasses/effect_phaser.h"
@@ -35,7 +35,7 @@ AudioAmplifier           notefreqAmp;    //xy=676,967
 AudioEffectAutoWah       autoWah;        //xy=691,1093
 AudioEffectDelay         delay1;         //xy=703,1648
 AudioEffectOverdrive     overdrive;      //xy=710,1291
-AudioEffectPitchShift    pitchShifter;   //xy=739,1181
+AudioEffectTranspose     transpose;    //xy=739,1181
 AudioEffectMultiChorus   chorus;         //xy=809,1371
 AudioAnalyzeNoteFrequency notefreq1;      //xy=832,969
 AudioEffectNoiseGate     noiseGate;      //xy=874,1093
@@ -68,7 +68,7 @@ AudioConnection          patchCord8(notefreqAmp, notefreq1);
 AudioConnection          patchCord9(autoWah, noiseGate);
 AudioConnection          patchCord10(delay1, 0, delayMixer, 1);
 AudioConnection          patchCord11(overdrive, distortion);
-AudioConnection          patchCord12(pitchShifter, autoWham);
+AudioConnection          patchCord12(transpose, autoWham);
 AudioConnection          patchCord13(chorus, flanger);
 AudioConnection          patchCord14(noiseGate, compressor);
 AudioConnection          patchCord15(distortion, fuzzFF);
@@ -76,7 +76,7 @@ AudioConnection          patchCord16(autoWham, overdrive);
 AudioConnection          patchCord17(flanger, tremolo);
 AudioConnection          patchCord18(freeverbFP, 0, masterMixer, 3);
 AudioConnection          patchCord19(freeverbFP, recordGuitarQueue);
-AudioConnection          patchCord20(compressor, pitchShifter);
+AudioConnection          patchCord20(compressor, transpose);
 AudioConnection          patchCord21(fuzzFF, phaser);
 AudioConnection          patchCord22(tremolo, 0, delayMixer, 0);
 AudioConnection          patchCord23(recorderPlayWav, 0, playSDMixer, 2);

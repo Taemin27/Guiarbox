@@ -1,10 +1,10 @@
 #pragma once
 #include "../EffectManager.h"
-#include "../../../../lib/customAudioClasses/effect_pitchShift.h"
+#include "../../../../lib/customAudioClasses/effect_transpose.h"
 
-extern AudioEffectPitchShift pitchShifter;
+extern AudioEffectTranspose transpose;
 
-class PitchShifterManager : public EffectManager {
+class TransposeManager : public EffectManager {
 private:
     float pitch = 0.0f;
     float mix = 1.0f;
@@ -16,7 +16,7 @@ private:
 
 public:
     const char* getName() const override {
-        return "Pitch Shift";
+        return "Transpose";
     }
 
     const EffectParameter* getParameters() const override {
@@ -29,11 +29,11 @@ public:
 
     void syncToChain() override {
         if (enabled) {
-            pitchShifter.setSemitones(pitch);
-            pitchShifter.setMix(mix);
-            pitchShifter.enable();
+            transpose.setSemitones(pitch);
+            transpose.setMix(mix);
+            transpose.enable();
         } else {
-            pitchShifter.disable();
+            transpose.disable();
         }
     }
 };

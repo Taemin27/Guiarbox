@@ -1,12 +1,12 @@
-#ifndef effect_pitchShift_h_
-#define effect_pitchShift_h_
+#ifndef effect_transpose_h_
+#define effect_transpose_h_
 
 #include <Arduino.h>
 #include "AudioStream.h"
 
-class AudioEffectPitchShift : public AudioStream {
+class AudioEffectTranspose : public AudioStream {
 public:
-    AudioEffectPitchShift();
+    AudioEffectTranspose();
     virtual void update(void);
 
     void setSemitones(float semitones);

@@ -4,14 +4,7 @@
 #include <Arduino.h>
 #include <AudioStream.h>
 
-/**
- * Noise gate effect (level-dependent attenuation).
- *
- * Controls:
- * - threshold: linear amplitude threshold (0..1), same convention as compressor/pitch shift
- * - holdMs: time to stay open after falling below threshold (ms)
- * - range: amount of reduction when closed (0..1). 0=no reduction, 1=mute when closed
- */
+
 class AudioEffectNoiseGate : public AudioStream {
 public:
     AudioEffectNoiseGate();

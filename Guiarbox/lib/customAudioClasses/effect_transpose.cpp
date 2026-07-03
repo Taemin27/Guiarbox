@@ -1,4 +1,4 @@
-#include "effect_pitchShift.h"
+#include "effect_transpose.h"
 
 namespace {
 
@@ -12,7 +12,7 @@ int grainSamplesFromMs(float ms) {
 
 } // namespace
 
-AudioEffectPitchShift::AudioEffectPitchShift() : AudioStream(1, inputQueueArray) {
+AudioEffectTranspose::AudioEffectTranspose() : AudioStream(1, inputQueueArray) {
     grainSamples = grainSamplesFromMs(DEFAULT_GRAIN_MS);
 
     for (uint32_t i = 0; i < BUFFER_SIZE; ++i) {
@@ -20,28 +20,28 @@ AudioEffectPitchShift::AudioEffectPitchShift() : AudioStream(1, inputQueueArray)
     }
 }
 
-void AudioEffectPitchShift::setSemitones(float semitones) {
+void AudioEffectTranspose::setSemitones(float semitones) {
     semitones = constrain(semitones, -24.0f, 24.0f);
     shiftRatio = powf(2.0f, semitones / 12.0f);
 }
 
-void AudioEffectPitchShift::setMix(float mixValue) {
+void AudioEffectTranspose::setMix(float mixValue) {
     mix = constrain(mixValue, 0.0f, 1.0f);
 }
 
-void AudioEffectPitchShift::enable() {
+void AudioEffectTranspose::enable() {
     enabled = true;
 }
 
-void AudioEffectPitchShift::disable() {
+void AudioEffectTranspose::disable() {
     enabled = false;
 }
 
-bool AudioEffectPitchShift::isEnabled() const {
+bool AudioEffectTranspose::isEnabled() const {
     return enabled;
 }
 
-float AudioEffectPitchShift::readHermite(double readPos) const {
+float AudioEffectTranspose::readHermite(double readPos) const {
     const int64_t i0 = (int64_t)floor(readPos);
     const float f = (float)(readPos - (double)i0);
 
@@ -58,7 +58,7 @@ float AudioEffectPitchShift::readHermite(double readPos) const {
     return ((a * f - b) * f + c) * f + x0;
 }
 
-float AudioEffectPitchShift::processSample(float drySample) {
+float AudioEffectTranspose::processSample(float drySample) {
     buffer[(size_t)(writePos & BUFFER_MASK)] = drySample;
 
     if (fabsf(shiftRatio - 1.0f) < UNITY_RATIO_EPS) {
@@ -97,7 +97,7 @@ float AudioEffectPitchShift::processSample(float drySample) {
     return w1 * s1 + w2 * s2;
 }
 
-void AudioEffectPitchShift::update(void) {
+void AudioEffectTranspose::update(void) {
     audio_block_t *block = receiveWritable(0);
     if (!block) {
         return;

@@ -6,7 +6,7 @@
 #include "Dynamic/NoiseGateManager.h"
 #include "Dynamic/CompressorManager.h"
 
-#include "Pitch/PitchShifterManager.h"
+#include "Pitch/TransposeManager.h"
 #include "Pitch/AutoWhamManager.h"
 
 #include "Drive/OverdriveManager.h"
@@ -27,7 +27,7 @@ EffectCategory effectsRegistry[] = {
                     new NoiseGateManager(),
                     new CompressorManager()}},
 
-    {"Pitch", {     new PitchShifterManager(),
+    {"Pitch", {     new TransposeManager(),
                     new AutoWhamManager()}},
 
     {"Drive", {     new OverdriveManager(),

@@ -4,12 +4,12 @@
 namespace {
 
 constexpr float DEFAULT_SAMPLE_RATE = 44100.0f;
+constexpr float LN_SETTLE_RATIO = 2.99573227355f;
 
 constexpr float MIN_FREQ_HZ = 30.0f;
 constexpr float MIN_Q = 0.3f;
 constexpr float MAX_Q = 20.0f;
 
-// Speed mapping. Chosen to feel "wah-like" on guitar.
 constexpr float ATTACK_MS_MIN = 0.0f;
 constexpr float ATTACK_MS_MAX = 500.0f;
 constexpr float RELEASE_MS_MIN = 0.0f;
@@ -28,10 +28,6 @@ AudioEffectAutoWah::AudioEffectAutoWah() : AudioStream(1, inputQueueArray) {
 }
 
 void AudioEffectAutoWah::enable() {
-    // Only reset DSP state on a real off->on transition. Re-enabling an
-    // already-running effect (e.g. when syncToChain() is called after a
-    // parameter change) must not clear the envelope/filter state, or the
-    // wah will audibly "reset" every time the user touches the menu.
     if (!enabled) {
         env = 0.0f;
         ctrl = 0.0f;
@@ -45,18 +41,17 @@ void AudioEffectAutoWah::disable() {
     enabled = false;
 }
 
-float AudioEffectAutoWah::coeffFromMs(float ms, float sampleRate) {
-    if (ms <= 0.0f) {
-        return 1.0f;
-    }
-    const float sr = max(sampleRate, 1.0f);
-    const float tauSec = ms * 0.001f;
-    return 1.0f - expf(-1.0f / (tauSec * sr));
-}
-
 void AudioEffectAutoWah::updateEnvelopeCoeffs() {
-    attackAlpha = coeffFromMs(attackMs, DEFAULT_SAMPLE_RATE);
-    releaseAlpha = coeffFromMs(releaseMs, DEFAULT_SAMPLE_RATE);
+    if (attackMs <= 0.0f) {
+        attackAlpha = 1.0f;
+    } else {
+        attackAlpha = 1.0f - expf(-LN_SETTLE_RATIO / (attackMs * 0.001f * DEFAULT_SAMPLE_RATE));
+    }
+    if (releaseMs <= 0.0f) {
+        releaseAlpha = 1.0f;
+    } else {
+        releaseAlpha = 1.0f - expf(-LN_SETTLE_RATIO / (releaseMs * 0.001f * DEFAULT_SAMPLE_RATE));
+    }
 }
 
 void AudioEffectAutoWah::setLowFreq(float hz) {
@@ -186,23 +181,16 @@ void AudioEffectAutoWah::update(void) {
         const float x = (float)block->data[i] * (1.0f / 32768.0f);
         const float a = fabsf(x);
 
-        // Envelope follower with separate attack/release.
         if (a > env) {
             env += (a - env) * attackAlpha;
         } else {
             env += (a - env) * releaseAlpha;
         }
 
-        // Sensitivity scales the effective sweep input (envelope -> sweep control).
-        // We use a curved mapping so the top end has plenty of range for low-level inputs:
-        // - sensitivity=0   -> gain ~0.5 (mostly stays near low)
-        // - sensitivity=1   -> gain ~64 (can fully open on lower-level inputs)
         const float sens = clamp01(sensitivity);
         const float envGain = 0.5f + 63.5f * (sens * sens);
         const float target = clamp01(env * envGain);
 
-        // Slight additional smoothing on the control itself (prevents zippering).
-        // Tie it to the envelope release for a single "speed" feel.
         ctrl += (target - ctrl) * (0.35f * releaseAlpha);
 
         const float fc = computeFcHz(ctrl);

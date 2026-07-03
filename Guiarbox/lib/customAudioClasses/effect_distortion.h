@@ -89,8 +89,6 @@ private:
 
     // Tone control
     static constexpr float Ct = 10e-9f;              // 10nF tone capacitor shunt to ground
-    // Wider range so the darkest settings can get genuinely dark.
-    // (With the previous 10k max, the low-pass corner couldn't go much below ~1.6kHz.)
     static constexpr float RtoneMin = 5000.0f;
     static constexpr float RtoneMax = 47000.0f;
 

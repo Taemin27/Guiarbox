@@ -6,11 +6,12 @@
 #include "Dynamic/NoiseGateManager.h"
 #include "Dynamic/CompressorManager.h"
 
+#include "Pitch/PitchShifterManager.h"
+#include "Pitch/AutoWhamManager.h"
+
 #include "Drive/OverdriveManager.h"
 #include "Drive/DistortionManager.h"
 #include "Drive/FuzzManager.h"
-
-#include "Pitch/PitchShifterManager.h"
 
 #include "Modulation/PhaserManager.h"
 #include "Modulation/ChorusManager.h"
@@ -26,11 +27,12 @@ EffectCategory effectsRegistry[] = {
                     new NoiseGateManager(),
                     new CompressorManager()}},
 
-    {"Drive", {     new OverdriveManager(), 
+    {"Pitch", {     new PitchShifterManager(),
+                    new AutoWhamManager()}},
+
+    {"Drive", {     new OverdriveManager(),
                     new DistortionManager()}},
 
-    {"Pitch", {     new PitchShifterManager()}},
-    
     {"Modulation", { new PhaserManager(),
                     new ChorusManager(),
                     new FlangerManager(),

@@ -16,8 +16,8 @@ private:
     EffectParameter params[5] = {
         {"Thr", ParamType::Int, &gateDb, -60, 0, 1},
         {"Ratio", ParamType::Int, &ratio, 1, 20, 1},
-        {"Attack", ParamType::Int, &attackMs, 0, 500, 1},
-        {"Release", ParamType::Int, &releaseMs, 1, 500, 1},
+        {"Atk(ms)", ParamType::Int, &attackMs, 0, 500, 1},
+        {"Rel(ms)", ParamType::Int, &releaseMs, 1, 500, 1},
         {"Gain", ParamType::Float, &gain, 0.0f, 20.0f, 0.5f, nullptr, 0, 1}
     };
 

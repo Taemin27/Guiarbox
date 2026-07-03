@@ -14,8 +14,8 @@ private:
 
     EffectParameter params[5] = {
         {"Thr", ParamType::Int, &threshold, -80, 0, 1},
-        {"Attack", ParamType::Int, &attackMs, 0, 300, 1},
-        {"Release", ParamType::Int, &releaseMs, 0, 300, 1},
+        {"Atk(ms)", ParamType::Int, &attackMs, 0, 300, 1},
+        {"Rel(ms)", ParamType::Int, &releaseMs, 0, 300, 1},
         {"Hold", ParamType::Int, &holdMs, 0, 600, 1},
         {"Range", ParamType::Float, &range, 0.0f, 10.0f, 0.5f, nullptr, 0, 1}
     };

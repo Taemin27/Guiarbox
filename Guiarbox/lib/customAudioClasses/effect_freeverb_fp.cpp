@@ -1,16 +1,16 @@
 #include "effect_freeverb_fp.h"
 #include <string.h>
 
-DMAMEM static float s_combStorage[AudioEffectFreeverbFP::kCombBufferSize];
-DMAMEM static float s_allpassStorage[AudioEffectFreeverbFP::kAllpassBufferSize];
-DMAMEM static float s_predelayBuffer[AudioEffectFreeverbFP::kPredelayBufferSize];
+DMAMEM static float s_combStorage[AudioEffectFreeverbFP::COMB_BUFFER_SIZE];
+DMAMEM static float s_allpassStorage[AudioEffectFreeverbFP::ALLPASS_BUFFER_SIZE];
+DMAMEM static float s_predelayBuffer[AudioEffectFreeverbFP::PREDELAY_BUFFER_SIZE];
 
 namespace {
 
-constexpr float kInputScale = 1.0f / 32768.0f;
-constexpr float kOutputGain = 0.55f;
-constexpr float kDenormalFloor = 1.0e-12f;
-constexpr float kSampleRate = AUDIO_SAMPLE_RATE_EXACT;
+constexpr float INPUT_SCALE = 1.0f / 32768.0f;
+constexpr float OUTPUT_GAIN = 0.55f;
+constexpr float DENORMAL_FLOOR = 1.0e-12f;
+constexpr float SAMPLE_RATE = AUDIO_SAMPLE_RATE_EXACT;
 inline float clamp01(float value) { return constrain(value, 0.0f, 1.0f); }
 
 } // namespace
@@ -67,7 +67,7 @@ void AudioEffectFreeverbFP::Allpass::clear() {
 }
 
 float AudioEffectFreeverbFP::flushDenormal(float value) {
-    if (value > -kDenormalFloor && value < kDenormalFloor) {
+    if (value > -DENORMAL_FLOOR && value < DENORMAL_FLOOR) {
         return 0.0f;
     }
     return value;
@@ -79,14 +79,14 @@ float AudioEffectFreeverbFP::readPredelay() const {
     }
 
     const float readPos =
-        (float)predelayWriteIndex - predelaySamples + (float)kPredelayBufferSize;
+        (float)predelayWriteIndex - predelaySamples + (float)PREDELAY_BUFFER_SIZE;
     const int readIndex =
-        (((int)readPos % kPredelayBufferSize) + kPredelayBufferSize) % kPredelayBufferSize;
+        (((int)readPos % PREDELAY_BUFFER_SIZE) + PREDELAY_BUFFER_SIZE) % PREDELAY_BUFFER_SIZE;
     return predelayBuffer[readIndex];
 }
 
 void AudioEffectFreeverbFP::writePredelay(float sample) {
-    predelayBuffer[predelayWriteIndex % kPredelayBufferSize] = sample;
+    predelayBuffer[predelayWriteIndex % PREDELAY_BUFFER_SIZE] = sample;
     predelayWriteIndex++;
 }
 
@@ -107,16 +107,16 @@ AudioEffectFreeverbFP::AudioEffectFreeverbFP()
       allpass2(441, allpassStorage + 556),
       allpass3(341, allpassStorage + 556 + 441),
       allpass4(225, allpassStorage + 556 + 441 + 341) {
-    memset(predelayBuffer, 0, sizeof(float) * kPredelayBufferSize);
+    memset(predelayBuffer, 0, sizeof(float) * PREDELAY_BUFFER_SIZE);
     setDecay(0.5f);
     setTone(0.5f);
     setPredelayMs(0.0f);
+    setDryLevel(1.0f);
+    setWetLevel(0.0f);
 }
 
 void AudioEffectFreeverbFP::setDecay(float decay01) {
     decay01 = clamp01(decay01);
-    // Use a gentle curve so the top end doesn't jump to "infinite cave".
-    // sqrt() gives more resolution in the mid range and a softer knee near 1.0.
     const float t = sqrtf(decay01);
     const float feedback = 0.5f + t * 0.48f;
     comb1.setFeedback(feedback);
@@ -144,10 +144,31 @@ void AudioEffectFreeverbFP::setTone(float tone01) {
 
 void AudioEffectFreeverbFP::setPredelayMs(float ms) {
     ms = constrain(ms, 0.0f, 100.0f);
-    predelaySamples = (ms * 0.001f) * kSampleRate;
-    if (predelaySamples >= (float)(kPredelayBufferSize - 1)) {
-        predelaySamples = (float)(kPredelayBufferSize - 2);
+    predelaySamples = (ms * 0.001f) * SAMPLE_RATE;
+    if (predelaySamples >= (float)(PREDELAY_BUFFER_SIZE - 1)) {
+        predelaySamples = (float)(PREDELAY_BUFFER_SIZE - 2);
     }
+}
+
+void AudioEffectFreeverbFP::setDryLevel(float level01) {
+    dryGain = clamp01(level01);
+}
+
+void AudioEffectFreeverbFP::setWetLevel(float level01) {
+    wetGain = clamp01(level01);
+}
+
+void AudioEffectFreeverbFP::enable() {
+    enabled = true;
+}
+
+void AudioEffectFreeverbFP::disable() {
+    enabled = false;
+    mute();
+}
+
+bool AudioEffectFreeverbFP::isEnabled() const {
+    return enabled;
 }
 
 void AudioEffectFreeverbFP::mute() {
@@ -163,11 +184,21 @@ void AudioEffectFreeverbFP::mute() {
     allpass2.clear();
     allpass3.clear();
     allpass4.clear();
-    memset(predelayBuffer, 0, sizeof(float) * kPredelayBufferSize);
+    memset(predelayBuffer, 0, sizeof(float) * PREDELAY_BUFFER_SIZE);
     predelayWriteIndex = 0;
 }
 
 void AudioEffectFreeverbFP::update(void) {
+    if (!enabled) {
+        audio_block_t *block = receiveWritable(0);
+        if (!block) {
+            return;
+        }
+        transmit(block);
+        release(block);
+        return;
+    }
+
     audio_block_t *block = receiveReadOnly(0);
     audio_block_t *outBlock = allocate();
     if (!outBlock) {
@@ -185,7 +216,18 @@ void AudioEffectFreeverbFP::update(void) {
     }
 
     for (int i = 0; i < AUDIO_BLOCK_SAMPLES; ++i) {
-        const float input = (float)block->data[i] * kInputScale;
+        const float input = (float)block->data[i] * INPUT_SCALE;
+
+        if (wetGain <= 0.0f) {
+            float out = input * dryGain;
+            if (out > 1.0f) {
+                out = 1.0f;
+            } else if (out < -1.0f) {
+                out = -1.0f;
+            }
+            outBlock->data[i] = (int16_t)(out * 32767.0f);
+            continue;
+        }
 
         writePredelay(input);
         const float reverbInput =
@@ -207,14 +249,16 @@ void AudioEffectFreeverbFP::update(void) {
         wet = allpass3.process(wet);
         wet = allpass4.process(wet);
 
-        wet = flushDenormal(wet * kOutputGain);
-        if (wet > 1.0f) {
-            wet = 1.0f;
-        } else if (wet < -1.0f) {
-            wet = -1.0f;
+        wet = flushDenormal(wet * OUTPUT_GAIN);
+        const float mixed = (input * dryGain) + (wet * wetGain);
+        float out = mixed;
+        if (out > 1.0f) {
+            out = 1.0f;
+        } else if (out < -1.0f) {
+            out = -1.0f;
         }
 
-        outBlock->data[i] = (int16_t)(wet * 32767.0f);
+        outBlock->data[i] = (int16_t)(out * 32767.0f);
     }
 
     transmit(outBlock);

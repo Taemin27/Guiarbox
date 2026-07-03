@@ -3,15 +3,16 @@
 
 namespace {
 inline float clamp01(float x) { return constrain(x, 0.0f, 1.0f); }
-} // namespace
 
-float AudioEffectNoiseGate::coeffFromMs(float ms, float sampleRate) {
-    if (ms <= 0.0f) {
+constexpr float LN_SETTLE_RATIO = 2.99573227355f;
+
+float stepAlphaFromSettleMs(float settleMs, float sampleRate) {
+    if (settleMs <= 0.0f) {
         return 1.0f;
     }
-    const float tauSec = ms * 0.001f;
-    return 1.0f - expf(-1.0f / (tauSec * max(sampleRate, 1.0f)));
+    return 1.0f - expf(-LN_SETTLE_RATIO / (settleMs * 0.001f * sampleRate));
 }
+} // namespace
 
 AudioEffectNoiseGate::AudioEffectNoiseGate() : AudioStream(1, inputQueueArray) {
     const float sr = AUDIO_SAMPLE_RATE_EXACT;
@@ -23,7 +24,7 @@ AudioEffectNoiseGate::AudioEffectNoiseGate() : AudioStream(1, inputQueueArray) {
     setRange(1.0f);
 
     // Fixed detector release to reduce chatter; gate timing is handled by attack/release + hold.
-    detectorReleaseAlpha = coeffFromMs(50.0f, sr);
+    detectorReleaseAlpha = stepAlphaFromSettleMs(50.0f, sr);
 }
 
 void AudioEffectNoiseGate::setThreshold(float t) {
@@ -31,11 +32,11 @@ void AudioEffectNoiseGate::setThreshold(float t) {
 }
 
 void AudioEffectNoiseGate::setAttackMs(float ms) {
-    attackAlpha = coeffFromMs(max(ms, 0.0f), AUDIO_SAMPLE_RATE_EXACT);
+    attackAlpha = stepAlphaFromSettleMs(max(ms, 0.0f), AUDIO_SAMPLE_RATE_EXACT);
 }
 
 void AudioEffectNoiseGate::setReleaseMs(float ms) {
-    releaseAlpha = coeffFromMs(max(ms, 0.0f), AUDIO_SAMPLE_RATE_EXACT);
+    releaseAlpha = stepAlphaFromSettleMs(max(ms, 0.0f), AUDIO_SAMPLE_RATE_EXACT);
 }
 
 void AudioEffectNoiseGate::setHoldMs(float ms) {

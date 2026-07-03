@@ -59,7 +59,6 @@ private:
   static constexpr float RdriveMax = 500000.0f;
 
   static constexpr float RtoneMin = 5000.0f;
-  // Wider range so the darkest settings can get genuinely dark.
   static constexpr float RtoneMax = 47000.0f;
 
   // Constants

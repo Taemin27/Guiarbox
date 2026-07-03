@@ -9,8 +9,6 @@
  *
  * Controls:
  * - threshold: linear amplitude threshold (0..1), same convention as compressor/pitch shift
- * - attackMs: time to open (ms)
- * - releaseMs: time to close (ms)
  * - holdMs: time to stay open after falling below threshold (ms)
  * - range: amount of reduction when closed (0..1). 0=no reduction, 1=mute when closed
  */
@@ -49,8 +47,6 @@ private:
 
     // Detector smoothing (fixed to avoid chatter)
     float detectorReleaseAlpha = 0.0f;
-
-    static float coeffFromMs(float ms, float sampleRate);
 };
 
 #endif

@@ -4,12 +4,12 @@
 #include <Arduino.h>
 #include <AudioStream.h>
 
-// Floating-point Freeverb. Large delay buffers live in RAM2 (DMAMEM).
+// Floating-point Freeverb with internal dry/wet mix. Large delay buffers live in RAM2 (DMAMEM).
 class AudioEffectFreeverbFP : public AudioStream {
 public:
-    static constexpr int kPredelayBufferSize = 4410; // 100 ms at 44.1 kHz
-    static constexpr int kCombBufferSize = 1116 + 1188 + 1277 + 1356 + 1422 + 1491 + 1557 + 1617;
-    static constexpr int kAllpassBufferSize = 556 + 441 + 341 + 225;
+    static constexpr int PREDELAY_BUFFER_SIZE = 4410; // 100 ms at 44.1 kHz
+    static constexpr int COMB_BUFFER_SIZE = 1116 + 1188 + 1277 + 1356 + 1422 + 1491 + 1557 + 1617;
+    static constexpr int ALLPASS_BUFFER_SIZE = 556 + 441 + 341 + 225;
 
     AudioEffectFreeverbFP();
 
@@ -18,10 +18,17 @@ public:
     void setDecay(float decay01);
     void setTone(float tone01);
     void setPredelayMs(float ms);
+    void setDryLevel(float level01);
+    void setWetLevel(float level01);
     void mute();
+
+    void enable();
+    void disable();
+    bool isEnabled() const;
 
 private:
     audio_block_t *inputQueueArray[1];
+    bool enabled = false;
 
     struct Comb {
         const int size;
@@ -71,6 +78,8 @@ private:
 
     uint32_t predelayWriteIndex = 0;
     float predelaySamples = 0.0f;
+    float dryGain = 1.0f;
+    float wetGain = 0.0f;
 
     static float flushDenormal(float value);
     float readPredelay() const;

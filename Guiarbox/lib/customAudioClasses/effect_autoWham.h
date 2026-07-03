@@ -1,16 +1,18 @@
-#ifndef effect_pitchShift_h_
-#define effect_pitchShift_h_
+#ifndef effect_autoWham_h_
+#define effect_autoWham_h_
 
 #include <Arduino.h>
 #include "AudioStream.h"
 
-class AudioEffectPitchShift : public AudioStream {
+class AudioEffectAutoWham : public AudioStream {
 public:
-    AudioEffectPitchShift();
+    AudioEffectAutoWham();
     virtual void update(void);
 
-    void setSemitones(float semitones);
-    void setMix(float mix);
+    void setTargetSemitones(float semitones);
+    void setThreshold(float threshold);
+    void setAttackMs(float attackMs);
+    void setReleaseMs(float releaseMs);
 
     void enable();
     void disable();
@@ -20,13 +22,18 @@ private:
     static constexpr uint32_t BUFFER_SIZE = 8192;
     static constexpr uint32_t BUFFER_MASK = BUFFER_SIZE - 1;
     static constexpr int DELAY_BASE = 4;
-    static constexpr float UNITY_RATIO_EPS = 1e-4f;
 
     audio_block_t *inputQueueArray[1];
     bool enabled = false;
 
     float shiftRatio = 1.0f;
-    float mix = 1.0f;
+    float targetShiftRatio = 1.0f;
+    float dynamicThreshold = 1.0f;
+
+    float pitchAttackCoef = 0.0f;
+    float pitchReleaseCoef = 0.0f;
+    float envLevel = 0.0f;
+    float envReleaseCoef = 0.0f;
 
     float buffer[BUFFER_SIZE];
     int64_t writePos = 0;

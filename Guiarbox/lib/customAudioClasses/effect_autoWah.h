@@ -10,7 +10,6 @@
  * Controls:
  * - low/high: sweep range for band-pass center frequency (Hz)
  * - sensitivity: how strongly input level drives the sweep (0..1)
- * - attack/release: envelope response (ms)
  * - Q: band-pass resonance (roughly 0.3..20)
  * - direction: mapping shape (up, down, up-down)
  */
@@ -67,7 +66,6 @@ private:
 
     float lastFcHz = -1.0f;
 
-    static float coeffFromMs(float ms, float sampleRate);
     void updateEnvelopeCoeffs();
 
     float mapDirection(float u01) const;

@@ -55,8 +55,6 @@ private:
 
     float attackAlpha;
     float releaseAlpha;
-
-    static float envelopeCoeffFromMs(float ms, float sampleRate);
 };
 
 #endif

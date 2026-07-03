@@ -94,12 +94,9 @@ void setup() {
 
   delayMixer.gain(0, 1);
   delayMixer.gain(1, 0);
-  reverbAmp.gain(0);
-  reverbMixer.gain(0, 1);
-  reverbMixer.gain(1, 0);
-  freeverb1.setDecay(0);
-  freeverb1.setTone(0.5f);
-  freeverb1.setPredelayMs(0);
+  freeverbFP.disable();
+  freeverbFP.setTone(0.5f);
+  freeverbFP.setPredelayMs(0);
 
   sgtl5000_1.enable();
   sgtl5000_1.dacVolumeRampDisable();
@@ -215,7 +212,6 @@ void loop() {
 
   bounce.update();
 
-  // Drain the record queue before other page work or display flushing can block SD I/O.
   recordPage.update();
   for (int i = 0; i < pageCount; i++) {
     if (pages[i] != &recordPage) {
@@ -242,8 +238,6 @@ void loop() {
     }
   }
 
-  // Use current active state — not the snapshot from the start of loop(), or encoder
-  // navigation can run in the same iteration as setup() after activating a page (stale false).
   if (!pages[currentPage] -> isActive()) {
     int encoder = readEncoder();
     if (encoder != 0) {
@@ -254,7 +248,6 @@ void loop() {
     }
   }
 
-  // Page draw/flush can block for tens of ms; drain again after UI work.
   if (recordPage.isRecording()) {
     recordPage.update();
   }

@@ -1,9 +1,19 @@
-#include "effect_pitchShift.h"
+#include "effect_autoWham.h"
+#include <math.h>
 
 namespace {
 
 constexpr float DEFAULT_SAMPLE_RATE = 44100.0f;
 constexpr float DEFAULT_GRAIN_MS = 48.0f;
+constexpr float ENV_SETTLE_MS = 50.0f;
+constexpr float LN_SETTLE_RATIO = 2.99573227355f;
+
+float onePoleCoefFromSettleMs(float settleMs) {
+    if (settleMs <= 0.0f) {
+        return 0.0f;
+    }
+    return expf(-LN_SETTLE_RATIO / (settleMs * 0.001f * DEFAULT_SAMPLE_RATE));
+}
 
 int grainSamplesFromMs(float ms) {
     const int g = (int)lroundf(ms * DEFAULT_SAMPLE_RATE / 1000.0f);
@@ -12,36 +22,50 @@ int grainSamplesFromMs(float ms) {
 
 } // namespace
 
-AudioEffectPitchShift::AudioEffectPitchShift() : AudioStream(1, inputQueueArray) {
+AudioEffectAutoWham::AudioEffectAutoWham() : AudioStream(1, inputQueueArray) {
+    targetShiftRatio = 2.0f;
+    shiftRatio = 1.0f;
     grainSamples = grainSamplesFromMs(DEFAULT_GRAIN_MS);
 
     for (uint32_t i = 0; i < BUFFER_SIZE; ++i) {
         buffer[i] = 0.0f;
     }
+
+    envReleaseCoef = onePoleCoefFromSettleMs(ENV_SETTLE_MS);
+    pitchAttackCoef = onePoleCoefFromSettleMs(30.0f);
+    pitchReleaseCoef = onePoleCoefFromSettleMs(30.0f);
 }
 
-void AudioEffectPitchShift::setSemitones(float semitones) {
+void AudioEffectAutoWham::setTargetSemitones(float semitones) {
     semitones = constrain(semitones, -24.0f, 24.0f);
-    shiftRatio = powf(2.0f, semitones / 12.0f);
+    targetShiftRatio = powf(2.0f, semitones / 12.0f);
 }
 
-void AudioEffectPitchShift::setMix(float mixValue) {
-    mix = constrain(mixValue, 0.0f, 1.0f);
+void AudioEffectAutoWham::setThreshold(float threshold) {
+    dynamicThreshold = constrain(threshold, 0.001f, 1.0f);
 }
 
-void AudioEffectPitchShift::enable() {
+void AudioEffectAutoWham::setAttackMs(float attackMs) {
+    pitchAttackCoef = onePoleCoefFromSettleMs(max(attackMs, 0.0f));
+}
+
+void AudioEffectAutoWham::setReleaseMs(float releaseMs) {
+    pitchReleaseCoef = onePoleCoefFromSettleMs(max(releaseMs, 0.0f));
+}
+
+void AudioEffectAutoWham::enable() {
     enabled = true;
 }
 
-void AudioEffectPitchShift::disable() {
+void AudioEffectAutoWham::disable() {
     enabled = false;
 }
 
-bool AudioEffectPitchShift::isEnabled() const {
+bool AudioEffectAutoWham::isEnabled() const {
     return enabled;
 }
 
-float AudioEffectPitchShift::readHermite(double readPos) const {
+float AudioEffectAutoWham::readHermite(double readPos) const {
     const int64_t i0 = (int64_t)floor(readPos);
     const float f = (float)(readPos - (double)i0);
 
@@ -58,13 +82,21 @@ float AudioEffectPitchShift::readHermite(double readPos) const {
     return ((a * f - b) * f + c) * f + x0;
 }
 
-float AudioEffectPitchShift::processSample(float drySample) {
+float AudioEffectAutoWham::processSample(float drySample) {
     buffer[(size_t)(writePos & BUFFER_MASK)] = drySample;
 
-    if (fabsf(shiftRatio - 1.0f) < UNITY_RATIO_EPS) {
-        ++writePos;
-        return drySample;
+    float absSample = fabsf(drySample);
+
+    if (absSample > envLevel) {
+        envLevel = absSample;
+    } else {
+        envLevel = envLevel * envReleaseCoef + absSample * (1.0f - envReleaseCoef);
     }
+
+    bool isTriggered = (envLevel > dynamicThreshold);
+    float targetRatio = isTriggered ? targetShiftRatio : 1.0f;
+    float smoothingCoef = isTriggered ? pitchAttackCoef : pitchReleaseCoef;
+    shiftRatio = shiftRatio * smoothingCoef + targetRatio * (1.0f - smoothingCoef);
 
     const double ratio = (double)shiftRatio;
     const double grain = (double)grainSamples;
@@ -97,7 +129,7 @@ float AudioEffectPitchShift::processSample(float drySample) {
     return w1 * s1 + w2 * s2;
 }
 
-void AudioEffectPitchShift::update(void) {
+void AudioEffectAutoWham::update(void) {
     audio_block_t *block = receiveWritable(0);
     if (!block) {
         return;
@@ -111,11 +143,10 @@ void AudioEffectPitchShift::update(void) {
 
     for (int i = 0; i < AUDIO_BLOCK_SAMPLES; i++) {
         float drySample = (float)block->data[i] / 32768.0f;
-        float wetSample = processSample(drySample);
-        float mixedSample = (drySample * (1.0f - mix)) + (wetSample * mix);
+        float outSample = processSample(drySample);
 
-        mixedSample = constrain(mixedSample, -1.0f, 1.0f);
-        block->data[i] = (int16_t)(mixedSample * 32767.0f);
+        outSample = constrain(outSample, -1.0f, 1.0f);
+        block->data[i] = (int16_t)(outSample * 32767.0f);
     }
 
     transmit(block);

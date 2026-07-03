@@ -1,23 +1,24 @@
 #include "effect_compressor.h"
 #include <Arduino.h>
+#include <math.h>
 
-// Match Teensy Audio default; envelope time constants are derived from this.
-static constexpr float kAudioSampleRate = 44100.0f;
-
-float AudioEffectCompressor::envelopeCoeffFromMs(float ms, float sampleRate) {
-    if (ms <= 0.0f) {
-        return 1.0f;
-    }
-    const float tauSec = ms * 0.001f;
-    return 1.0f - expf(-1.0f / (tauSec * sampleRate));
-}
+static constexpr float DEFAULT_SAMPLE_RATE = 44100.0f;
+static constexpr float LN_SETTLE_RATIO = 2.99573227355f;
 
 void AudioEffectCompressor::setAttackMs(float ms) {
-    attackAlpha = envelopeCoeffFromMs(ms, kAudioSampleRate);
+    if (ms <= 0.0f) {
+        attackAlpha = 1.0f;
+    } else {
+        attackAlpha = 1.0f - expf(-LN_SETTLE_RATIO / (ms * 0.001f * DEFAULT_SAMPLE_RATE));
+    }
 }
 
 void AudioEffectCompressor::setReleaseMs(float ms) {
-    releaseAlpha = envelopeCoeffFromMs(ms, kAudioSampleRate);
+    if (ms <= 0.0f) {
+        releaseAlpha = 1.0f;
+    } else {
+        releaseAlpha = 1.0f - expf(-LN_SETTLE_RATIO / (ms * 0.001f * DEFAULT_SAMPLE_RATE));
+    }
 }
 
 void AudioEffectCompressor::update() {

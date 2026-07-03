@@ -209,8 +209,8 @@ private:
 
     const char* sourceOptions[3] = {"Everything", "Guitar", "Guitar Raw"};
 
-    static constexpr uint32_t kRecordBlockBytes = AUDIO_BLOCK_SAMPLES * sizeof(int16_t);
-    static constexpr uint32_t kSectorBytes = kRecordBlockBytes * 2;
+    static constexpr uint32_t RECORD_BLOCK_BYTES = AUDIO_BLOCK_SAMPLES * sizeof(int16_t);
+    static constexpr uint32_t SECTOR_BYTES = RECORD_BLOCK_BYTES * 2;
 
     String bankFilename(int bank) const {
         return "recordings/RECORD" + String(bank) + ".WAV";
@@ -241,13 +241,13 @@ private:
             return;
         }
 
-        alignas(4) uint8_t buffer[kSectorBytes];
-        memcpy(buffer, queue->readBuffer(), kRecordBlockBytes);
+        alignas(4) uint8_t buffer[SECTOR_BYTES];
+        memcpy(buffer, queue->readBuffer(), RECORD_BLOCK_BYTES);
         queue->freeBuffer();
-        memcpy(buffer + kRecordBlockBytes, queue->readBuffer(), kRecordBlockBytes);
+        memcpy(buffer + RECORD_BLOCK_BYTES, queue->readBuffer(), RECORD_BLOCK_BYTES);
         queue->freeBuffer();
-        recordFile.write(buffer, kSectorBytes);
-        recordedBytes += kSectorBytes;
+        recordFile.write(buffer, SECTOR_BYTES);
+        recordedBytes += SECTOR_BYTES;
     }
 
     void startRecording() {
@@ -277,17 +277,17 @@ private:
         AudioRecordQueue* queue = queueForSource(recordingSourceIndex);
         queue->end();
         while (queue->available() >= 2) {
-            alignas(4) uint8_t buffer[kSectorBytes];
-            memcpy(buffer, queue->readBuffer(), kRecordBlockBytes);
+            alignas(4) uint8_t buffer[SECTOR_BYTES];
+            memcpy(buffer, queue->readBuffer(), RECORD_BLOCK_BYTES);
             queue->freeBuffer();
-            memcpy(buffer + kRecordBlockBytes, queue->readBuffer(), kRecordBlockBytes);
+            memcpy(buffer + RECORD_BLOCK_BYTES, queue->readBuffer(), RECORD_BLOCK_BYTES);
             queue->freeBuffer();
-            recordFile.write(buffer, kSectorBytes);
-            recordedBytes += kSectorBytes;
+            recordFile.write(buffer, SECTOR_BYTES);
+            recordedBytes += SECTOR_BYTES;
         }
         while (queue->available() > 0) {
-            recordFile.write((const uint8_t*)queue->readBuffer(), kRecordBlockBytes);
-            recordedBytes += kRecordBlockBytes;
+            recordFile.write((const uint8_t*)queue->readBuffer(), RECORD_BLOCK_BYTES);
+            recordedBytes += RECORD_BLOCK_BYTES;
             queue->freeBuffer();
         }
 

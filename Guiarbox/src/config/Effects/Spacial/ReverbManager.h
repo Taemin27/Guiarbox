@@ -1,5 +1,8 @@
 #pragma once
 #include "../EffectManager.h"
+#include "../../../../lib/customAudioClasses/effect_freeverb_fp.h"
+
+extern AudioEffectFreeverbFP freeverbFP;
 
 class ReverbManager : public EffectManager {
 private:
@@ -32,21 +35,14 @@ public:
 
     void syncToChain() override {
         if (enabled) {
-            freeverb1.setDecay(decay / 10.0f);
-            freeverb1.setTone(tone / 10.0f);
-            freeverb1.setPredelayMs((float)predelayMs);
-            reverbAmp.gain(1.0f);
-            reverbMixer.gain(0, dry / 10.0f);
-            reverbMixer.gain(1, wet / 10.0f);
+            freeverbFP.setDecay(decay / 10.0f);
+            freeverbFP.setTone(tone / 10.0f);
+            freeverbFP.setPredelayMs((float)predelayMs);
+            freeverbFP.setDryLevel(dry / 10.0f);
+            freeverbFP.setWetLevel(wet / 10.0f);
+            freeverbFP.enable();
         } else {
-            reverbAmp.gain(0.0f);
-            reverbMixer.gain(0, 1.0f);
-            reverbMixer.gain(1, 0.0f);
-            freeverb1.setDecay(0.0f);
-            freeverb1.setTone(0.0f);
-            freeverb1.setPredelayMs(0.0f);
-            freeverb1.mute();
+            freeverbFP.disable();
         }
     }
-
 };

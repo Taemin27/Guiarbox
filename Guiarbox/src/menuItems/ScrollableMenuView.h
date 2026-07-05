@@ -43,6 +43,16 @@ public:
         currentItem()->setFocused(true);
     }
 
+    bool tick() override {
+        bool needDraw = false;
+        for (MenuItem* item : items[(size_t)groupIndex]) {
+            if (item && item->tick()) {
+                needDraw = true;
+            }
+        }
+        return needDraw;
+    }
+
     bool onEncoderTurn(int delta) override {
         if (!isFocused()) {
             return false;

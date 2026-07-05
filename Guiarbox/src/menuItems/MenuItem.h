@@ -36,6 +36,9 @@ public:
 
     virtual void onButtonPress() {}
 
+    // Return true when the item needs a redraw (e.g. scrolling text).
+    virtual bool tick() { return false; }
+
 protected:
     MenuItem(int16_t px, int16_t py) : x(px), y(py), focused(false), editing(false) {}
 

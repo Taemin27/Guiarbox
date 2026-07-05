@@ -155,9 +155,11 @@ void setup() {
   /* Effects */
   overdrive.setLineInLevel(1);
   distortion.setLineInLevel(1);
+  cabinetIR.disable();
 
   PresetManager::createDefaultPreset();
   PresetManager::initCache();
+  effectsPage.initAfterSd();
   const int effectsPreset = PresetManager::getLastUsedPresetIndex();
   PresetManager::loadPreset(effectsPreset);
   effectsPage.setPresetIndex(effectsPreset);

@@ -21,6 +21,8 @@
 #include "Spacial/DelayManager.h"
 #include "Spacial/ReverbManager.h"
 
+#include "Cabinet/CabinetIRManager.h"
+
 EffectCategory effectsRegistry[] = {
     {"Dynamic", {   //new WahManager(),
                     new AutoWahManager(),
@@ -38,6 +40,8 @@ EffectCategory effectsRegistry[] = {
                     new FlangerManager(),
                     new TremoloManager()}},
 
-    {"Spacial", {   new DelayManager(),
+    {"Amp/Cab", {    new CabinetIRManager()}},
+
+    {"Spatial", {    new DelayManager(),
                     new ReverbManager()}}
 };

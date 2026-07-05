@@ -209,7 +209,10 @@ private:
     }
 
 	// Generates the appropriate editor for the parameter
-    MenuItem* paramToEditor(const EffectParameter& param, int16_t px, int16_t py, int16_t w, uint8_t textSize, Align align) {
+    MenuItem* paramToEditor(EffectManager* mgr, int paramIndex,
+                            int16_t px, int16_t py, int16_t w,
+                            uint8_t textSize, Align align) {
+        const EffectParameter& param = mgr->getParameters()[paramIndex];
         switch (param.type) {
             case ParamType::Float:
                 return new FloatEditor(px, py, w, param.name,
@@ -223,7 +226,7 @@ private:
                 return new ToggleButton(px, py, w, param.name, (bool*)param.valuePtr, textSize, align);
             case ParamType::Option:
                 return new OptionsSelector(px, py, w, param.name,
-                                           param.options, param.optionCount,
+                                           &mgr->getParameters()[paramIndex],
                                            (int*)param.valuePtr, textSize, align);
             default:
                 return nullptr;
@@ -325,8 +328,7 @@ public:
 						group.push_back(page);
 						page.clear();
 					}
-					EffectParameter parameter = mgr->getParameters()[k];
-					page.push_back(paramToEditor(parameter, 0, 16 * (k % 4 + 1), 160, 2, Align::Spread));
+					page.push_back(paramToEditor(mgr, k, 0, 16 * (k % 4 + 1), 160, 2, Align::Spread));
 				}
 				if (!page.empty()) {
 					group.push_back(page);
@@ -341,6 +343,14 @@ public:
 	}
 
 
+    void initAfterSd() {
+        for (int i = 0; i < (int)(sizeof(effectsRegistry) / sizeof(effectsRegistry[0])); i++) {
+            for (EffectManager* mgr : effectsRegistry[i].effectManagers) {
+                mgr->onSdReady();
+            }
+        }
+    }
+
     void setPresetIndex(int index) {
         preset = index;
         presetDirty = false;
@@ -352,6 +362,24 @@ public:
             return;
         }
         draw();
+    }
+
+    void update() override {
+        if (!isActive()) {
+            return;
+        }
+
+        bool needDraw = false;
+        if (currentView == PARAMETER) {
+            EffectParameters& ep = effectParameters[(size_t)parameterViewEffectIndex];
+            if (ep.parameterViewItems[2] && ep.parameterViewItems[2]->tick()) {
+                needDraw = true;
+            }
+        }
+
+        if (needDraw) {
+            draw();
+        }
     }
 
     void home() override {

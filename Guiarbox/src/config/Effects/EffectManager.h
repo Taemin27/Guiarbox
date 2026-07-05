@@ -20,7 +20,10 @@ struct EffectParameter {
 
     // decimal places for ParamType::Float (FloatEditor; clamped 1–6 in FloatEditor)
     int decimals = 2;
-    
+
+    // Optional Option hooks: save/load by stable name instead of index (e.g. SD file lists).
+    const char* (*optionIndexToName)(int index) = nullptr;
+    int (*optionNameToIndex)(const char* name) = nullptr;
 };
 
 class EffectManager {
@@ -33,6 +36,8 @@ public:
     virtual int getParameterCount() const = 0;
     virtual void syncToChain() = 0;
 
+    // Called after SD mount; override when parameters depend on SD file listings.
+    virtual void onSdReady() {}
 };
 
 struct EffectCategory {

@@ -173,8 +173,15 @@ class PresetManager {
                 obj[param.name] = *(float*)param.valuePtr;
                 break;
             case ParamType::Int:
-            case ParamType::Option:
                 obj[param.name] = *(int*)param.valuePtr;
+                break;
+            case ParamType::Option:
+                if (param.optionIndexToName) {
+                    const char* name = param.optionIndexToName(*(int*)param.valuePtr);
+                    obj[param.name] = (name != nullptr) ? name : "";
+                } else {
+                    obj[param.name] = *(int*)param.valuePtr;
+                }
                 break;
             case ParamType::Bool:
                 obj[param.name] = *(bool*)param.valuePtr;
@@ -203,6 +210,15 @@ class PresetManager {
                     value.as<int>(), (int)param.minValue, (int)param.maxValue);
                 return true;
             case ParamType::Option:
+                if (param.optionNameToIndex && value.is<const char*>()) {
+                    const int idx = param.optionNameToIndex(value.as<const char*>());
+                    if (idx >= 0) {
+                        *(int*)param.valuePtr = idx;
+                    } else {
+                        *(int*)param.valuePtr = (int)param.minValue;
+                    }
+                    return true;
+                }
                 if (!value.is<int>() && !value.is<float>()) {
                     return false;
                 }

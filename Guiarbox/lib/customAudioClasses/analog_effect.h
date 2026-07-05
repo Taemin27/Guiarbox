@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include "AudioStream.h"
+#include "wave_lut.h"
 #include <math.h>
 
 class AudioAnalogEffect : public AudioStream {
@@ -64,16 +65,29 @@ protected:
 
     static constexpr float dt = 1.0f / AUDIO_SAMPLE_RATE_EXACT;  // Sample period
 
-    // Antiparallel diode pair current.
-    static inline float Id(float v, float saturationCurrent, float idealityFactor, float thermalVoltage) {
-        const float x = v / (idealityFactor * thermalVoltage);
-        return 2.0f * saturationCurrent * tanhf(x);
+    // Antiparallel diode pair: Id = 2·Is·sinh(v/nVt); uses WAVE_LUT_SINH/COSH.
+    static inline void diodePair(float v, float saturationCurrent, float idealityFactor,
+                                 float thermalVoltage, float &id, float &did) {
+        const float invNv = 1.0f / (idealityFactor * thermalVoltage);
+        const float x = v * invNv;
+        const float s = waveLutSample(WAVE_LUT_SINH, x);
+        const float c = waveLutSample(WAVE_LUT_COSH, x);
+        const float scale = 2.0f * saturationCurrent;
+        id = scale * s;
+        did = scale * invNv * c;
     }
+    static inline float Id(float v, float saturationCurrent, float idealityFactor, float thermalVoltage) {
+        float id = 0.0f;
+        float did = 0.0f;
+        diodePair(v, saturationCurrent, idealityFactor, thermalVoltage, id, did);
+        return id;
+    }
+
     static inline float dId(float v, float saturationCurrent, float idealityFactor, float thermalVoltage) {
-        const float x = v / (idealityFactor * thermalVoltage);
-        const float t = tanhf(x);
-        const float scale = 2.0f * saturationCurrent / (idealityFactor * thermalVoltage);
-        return scale * (1.0f - t * t);
+        float id = 0.0f;
+        float did = 0.0f;
+        diodePair(v, saturationCurrent, idealityFactor, thermalVoltage, id, did);
+        return did;
     }
 
     // Call every sample to update capacitor voltage
@@ -91,8 +105,8 @@ protected:
         const float Vpos = 3.6f;
         const float Vneg = 3.2f;
         return (x >= 0.0f)
-            ? Vpos * tanhf(x / Vpos)
-            : Vneg * tanhf(x / Vneg);
+            ? Vpos * waveLutSample(WAVE_LUT_TANH, x / Vpos)
+            : Vneg * waveLutSample(WAVE_LUT_TANH, x / Vneg);
     }
 };
 #endif

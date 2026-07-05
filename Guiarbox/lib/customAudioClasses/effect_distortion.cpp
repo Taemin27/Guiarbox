@@ -106,11 +106,12 @@ inline float AudioEffectDistortion::solveClipStage(float Vo2) {
     const float a = invRc / D;
     const float Va = a * Vc + (alpha * (Vo2 - VCc)) / D;
 
-    const float f  = (Va - Vc) * invRc
-                    - Id(Vc, saturationCurrent, idealityFactor, thermalVoltage);
+    float id = 0.0f;
+    float did = 0.0f;
+    diodePair(Vc, saturationCurrent, idealityFactor, thermalVoltage, id, did);
 
-    const float df = (a - 1.0f) * invRc
-                    - dId(Vc, saturationCurrent, idealityFactor, thermalVoltage);
+    const float f  = (Va - Vc) * invRc - id;
+    const float df = (a - 1.0f) * invRc - did;
 
     Vc -= f / (df + 1e-12f);
   }

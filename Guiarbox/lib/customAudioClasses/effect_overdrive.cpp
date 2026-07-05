@@ -31,22 +31,6 @@ void AudioEffectOverdrive::setLevel(float level) {
   this->level = constrain(level, 0.0f, 1.0f);
 }
 
-// KCL at the inverting input node of the op-amp
-inline float AudioEffectOverdrive::kcl(float Vo, float Vin, float Vx) const {
-  const float x = Vo - Vin;
-  return  (x / Rdrive) 
-          + (Cf / dt * (x - VCf)) 
-          + Id(x, saturationCurrent, idealityFactor, thermalVoltage) 
-          - ((Vin - Vx) / Rg);
-}
-// Derivative of KCL equation wrt Vo
-inline float AudioEffectOverdrive::kclDerivative(float Vo, float Vin) const {
-  const float x = Vo - Vin;
-  return  (1.0f / Rdrive) 
-          + (Cf / dt) 
-          + dId(x, saturationCurrent, idealityFactor, thermalVoltage);
-}
-
 float AudioEffectOverdrive::processSample(float sample) {
   if (!enabled) {
     return sample;
@@ -62,11 +46,20 @@ float AudioEffectOverdrive::processSample(float sample) {
   // Newton–Raphson solve for Vo
   float Vo = VoPrev;
   for (int i = 0; i < 3; i++) {
-    const float f  = kcl(Vo, Vin, VCg);
-    const float df = kclDerivative(Vo, Vin);
-    Vo -= 0.5f *f / (df + 1e-12f);
+    const float x = Vo - Vin;
+    float id = 0.0f;
+    float did = 0.0f;
+    diodePair(x, saturationCurrent, idealityFactor, thermalVoltage, id, did);
+    const float f = (x / Rdrive)
+                  + (Cf / dt * (x - VCf))
+                  + id
+                  - ((Vin - VCg) / Rg);
+    const float df = (1.0f / Rdrive) + (Cf / dt) + did;
+    Vo -= 0.5f * f / (df + 1e-12f);
   }
-  
+
+  Vo = railLimit(Vo);
+
   // Update states
   VoPrev = Vo;
   VCf  = Vo - Vin;

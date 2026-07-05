@@ -75,11 +75,6 @@ private:
   static constexpr float Cg = 47e-9f;      // 47nF Capacitor to ground at Rg node
 
   static constexpr float Ct = 22e-9f;     // 22nF Tone capacitor shunt to ground
-
-  inline float kcl(float Vo, float Vin, float Vx) const;
-  inline float kclDerivative(float Vo, float Vin) const;
-
-  
 };
 
 #endif

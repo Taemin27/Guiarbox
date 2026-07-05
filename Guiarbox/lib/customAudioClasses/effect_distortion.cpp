@@ -102,7 +102,7 @@ inline float AudioEffectDistortion::solveClipStage(float Vo2) {
 
   float Vc = VclipPrev;
 
-  for (int i = 0; i < 6; ++i) {
+  for (int i = 0; i < 3; ++i) {
     const float a = invRc / D;
     const float Va = a * Vc + (alpha * (Vo2 - VCc)) / D;
 
@@ -120,7 +120,6 @@ inline float AudioEffectDistortion::solveClipStage(float Vo2) {
 
   VclipPrev = Vc;
 
-  Serial.println(Vc);
   return Vc;
 }
 

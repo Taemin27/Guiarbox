@@ -171,13 +171,38 @@ void setup() {
 
   Serial.print("Audio memory max: ");
   Serial.println(AudioMemoryUsageMax());
+  Serial.print("Audio CPU max: ");
+  Serial.println(AudioProcessorUsageMax(), 1);
+  AudioProcessorUsageMaxReset();
 
   sgtl5000_1.unmuteLineout();
 
   switchPage(0);
 }
 
-int previousMemoryUsage = 0;
+uint32_t lastAudioStatsMs = 0;
+
+void maybePrintAudioStats() {
+  if (!Serial) {
+    return;
+  }
+
+  const uint32_t now = millis();
+  if (lastAudioStatsMs != 0 && (now - lastAudioStatsMs) < 5000) {
+    return;
+  }
+  lastAudioStatsMs = now;
+
+  Serial.print("CPU ");
+  Serial.print(AudioProcessorUsage(), 1);
+  Serial.print("% max ");
+  Serial.print(AudioProcessorUsageMax(), 1);
+  Serial.print("%  mem ");
+  Serial.print(AudioMemoryUsage());
+  Serial.print(" max ");
+  Serial.println(AudioMemoryUsageMax());
+  AudioProcessorUsageMaxReset();
+}
 
 void refreshCurrentPage() {
   pages[currentPage]->refresh();
@@ -205,7 +230,7 @@ bool pageEntryAllowed(int page) {
 }
 
 void loop() {
-  printAudioMemoryUsage();
+  maybePrintAudioStats();
   float requestedVolume = usb1.volume();
   usbMixer.gain(0, requestedVolume);
   usbMixer.gain(1, requestedVolume);
@@ -286,12 +311,4 @@ int readEncoder() {
     return (-1);
   }
   return (0);
-}
-
-void printAudioMemoryUsage() {
-  int memoryUsage = AudioMemoryUsage();
-  if (memoryUsage != previousMemoryUsage) {
-    previousMemoryUsage = memoryUsage;
-    Serial.println(memoryUsage);
-  }
 }

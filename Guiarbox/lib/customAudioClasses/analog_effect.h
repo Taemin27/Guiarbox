@@ -63,24 +63,17 @@ protected:
     /* Modeling tools */
 
     static constexpr float dt = 1.0f / AUDIO_SAMPLE_RATE_EXACT;  // Sample period
-    
-    static inline float sinh_clamped(float x) {
-        x = constrain(x, -12.0f, 12.0f);
-        return 0.5f * (expf(x) - expf(-x));
-    }
-    static inline float cosh_clamped(float x) {
-        x = constrain(x, -12.0f, 12.0f);
-        return 0.5f * (expf(x) + expf(-x));
-    }
 
-    // Antiparallel diode pair current. Useful for modeling clipping stages
+    // Antiparallel diode pair current.
     static inline float Id(float v, float saturationCurrent, float idealityFactor, float thermalVoltage) {
         const float x = v / (idealityFactor * thermalVoltage);
-        return 2.0f * saturationCurrent * sinh_clamped(x);
+        return 2.0f * saturationCurrent * tanhf(x);
     }
     static inline float dId(float v, float saturationCurrent, float idealityFactor, float thermalVoltage) {
         const float x = v / (idealityFactor * thermalVoltage);
-        return (2.0f * saturationCurrent / (idealityFactor * thermalVoltage)) * cosh_clamped(x);
+        const float t = tanhf(x);
+        const float scale = 2.0f * saturationCurrent / (idealityFactor * thermalVoltage);
+        return scale * (1.0f - t * t);
     }
 
     // Call every sample to update capacitor voltage

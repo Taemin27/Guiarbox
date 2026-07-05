@@ -61,7 +61,7 @@ float AudioEffectOverdrive::processSample(float sample) {
 
   // Newton–Raphson solve for Vo
   float Vo = VoPrev;
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 3; i++) {
     const float f  = kcl(Vo, Vin, VCg);
     const float df = kclDerivative(Vo, Vin);
     Vo -= 0.5f *f / (df + 1e-12f);

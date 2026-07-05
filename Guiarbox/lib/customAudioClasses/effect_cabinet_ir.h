@@ -25,6 +25,9 @@ public:
     bool isEnabled() const { return enabled; }
 
     void setLevel(float level);
+    void setBass(float amount);    // 0..1, 0.5 = flat
+    void setMid(float amount);
+    void setTreble(float amount);
 
     static float* loadScratchBuffer();
     static int loadScratchBufferSamples();
@@ -44,6 +47,17 @@ private:
 
     void rebuildIrPartitions(const float* samples, int length);
     void resetProcessingState();
+    void updateEqCoeffs();
+    float processEq(float x) const;
+
+    float bassAmount = 0.5f;
+    float midAmount = 0.5f;
+    float trebleAmount = 0.5f;
+    bool eqBypass = true;
+
+    float eqB[3][3] = {};
+    float eqA[3][2] = {};
+    mutable float eqZ[3][4] = {};
 };
 
 #endif

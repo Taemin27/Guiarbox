@@ -23,7 +23,7 @@ public:
     }
 
     int getParameterCount() const override {
-        return 2;
+        return 5;
     }
 
     void onSdReady() override {
@@ -55,6 +55,9 @@ public:
         }
 
         cabinetIR.setLevel(level / 10.0f);
+        cabinetIR.setBass(bass / 10.0f);
+        cabinetIR.setMid(mid / 10.0f);
+        cabinetIR.setTreble(treble / 10.0f);
         cabinetIR.enable();
     }
 
@@ -62,10 +65,16 @@ private:
     int irIndex = 0;
     int lastLoadedIndex = -1;
     float level = 5.0f;
+    float bass = 5.0f;
+    float mid = 5.0f;
+    float treble = 5.0f;
 
-    EffectParameter params[2] = {
+    EffectParameter params[5] = {
         {"IR  ", ParamType::Option, &irIndex, 0.0f, 0.0f, 1.0f, nullptr, 0, 0,
          IrFileCatalog::displayNameForIndex, IrFileCatalog::indexForDisplayName},
+        {"Bass", ParamType::Float, &bass, 0.0f, 10.0f, 0.5f, nullptr, 0, 1},
+        {"Mid ", ParamType::Float, &mid, 0.0f, 10.0f, 0.5f, nullptr, 0, 1},
+        {"Treble", ParamType::Float, &treble, 0.0f, 10.0f, 0.5f, nullptr, 0, 1},
         {"Level", ParamType::Float, &level, 0.0f, 10.0f, 0.5f, nullptr, 0, 1}
     };
 
